@@ -421,17 +421,31 @@ const translations = {
 // INITIALIZATION
 // ============================================
 
+// Safe initializer to prevent one failing module from breaking others
+function safeInit(name, fn) {
+  try {
+    if (typeof fn === 'function') {
+      fn();
+    }
+  } catch (err) {
+    // Log to console so debugging is easier, but don't block other features
+    console.error(`Error during init: ${name}`, err);
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   // Initialize language system first
-  initLanguageSystem();
+  safeInit('language', initLanguageSystem);
   
   // Initialize in proper order to prevent flicker
-  initNavigation();
-  initParticleCanvas();
-  initScrollProgress();
-  initBackToTop();
-  initContactForm();
-  initChatbot();
+  safeInit('navigation', initNavigation);
+  safeInit('anchorLinks', initAnchorLinks);
+  safeInit('particles', initParticleCanvas);
+  safeInit('scrollProgress', initScrollProgress);
+  safeInit('backToTop', initBackToTop);
+  safeInit('contactForm', initContactForm);
+  safeInit('mobileContactActions', initMobileContactActions);
+  safeInit('chatbot', initChatbot);
   
   // Initialize animations after a brief delay to ensure DOM is ready
   requestAnimationFrame(() => {
@@ -441,7 +455,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initScrollAnimations();
     populateDynamicContent();
     initPageTransitions();
-    initAutoScrollNavigation();
+    // Disabled auto page snapping on scroll/touch to prevent unwanted jumps at page edges
+    // initAutoScrollNavigation();
     
     // Fallback: Ensure animated elements become visible after a delay
     // in case IntersectionObserver fails or elements are already in viewport
@@ -473,6 +488,7 @@ function initNavigation() {
   const navMenu = document.getElementById('nav-menu');
   const navLinks = document.querySelectorAll('.nav-link');
   const sections = document.querySelectorAll('.page');
+  let activeSectionId = 'home';
   
   // Handle scroll effect on nav with throttling
   let lastScroll = 0;
@@ -482,36 +498,34 @@ function initNavigation() {
     if (!navTicking) {
       window.requestAnimationFrame(() => {
         const currentScroll = window.pageYOffset;
-        
+
         if (currentScroll > 100) {
           nav.classList.add('scrolled');
         } else {
           nav.classList.remove('scrolled');
         }
 
-        // Scroll-based active link (scroll spy)
-        const offset = 140; // account for fixed navbar height
-        let currentSectionId = 'home';
+        // Scrollspy: update active nav item based on current section in view
+        const navHeight = 80; // keep in sync with navigateToPage
+        const scrollPosition = currentScroll + navHeight + 1;
+        let newActiveId = activeSectionId;
 
         sections.forEach(section => {
-          const sectionTop = section.offsetTop - offset;
+          const sectionTop = section.offsetTop;
           const sectionBottom = sectionTop + section.offsetHeight;
-
-          if (currentScroll >= sectionTop && currentScroll < sectionBottom) {
-            const id = section.getAttribute('data-page');
-            if (id) {
-              currentSectionId = id;
-            }
+          if (scrollPosition >= sectionTop && scrollPosition < sectionBottom) {
+            newActiveId = section.getAttribute('data-page') || newActiveId;
           }
         });
 
-        navLinks.forEach(link => {
-          link.classList.toggle(
-            'active',
-            link.getAttribute('data-page') === currentSectionId
-          );
-        });
-        
+        if (newActiveId !== activeSectionId) {
+          activeSectionId = newActiveId;
+          navLinks.forEach(link => {
+            const linkPage = link.getAttribute('data-page');
+            link.classList.toggle('active', linkPage === activeSectionId);
+          });
+        }
+
         lastScroll = currentScroll;
         navTicking = false;
       });
@@ -552,16 +566,9 @@ function initNavigation() {
   
   // CV Dropdown functionality
   initCVDropdown();
-  
-  // Handle hash changes
-  window.addEventListener('hashchange', () => {
-    const hash = window.location.hash.slice(1) || 'home';
-    navigateToPage(hash);
-  });
-  
-  // Initial page load
-  const initialHash = window.location.hash.slice(1) || 'home';
-  navigateToPage(initialHash);
+
+  // Initial page load: ensure we start at home without relying on URL hash
+  navigateToPage('home');
 }
 
 function navigateToPage(pageId) {
@@ -569,34 +576,35 @@ function navigateToPage(pageId) {
   const targetId = pageId || 'home';
   const targetSection = document.querySelector(`#page-${targetId}`);
   
-  // Smooth scroll to the corresponding section instead of hiding/showing pages
-  if (targetSection) {
-    const navHeight = 80; // approximate fixed nav height
-    const targetPosition = targetSection.getBoundingClientRect().top + window.pageYOffset - navHeight;
-    
-    window.scrollTo({
-      top: targetPosition,
-      behavior: 'smooth'
-    });
+  if (!targetSection) {
+    console.warn('Target section not found:', `#page-${targetId}`);
+    return;
   }
+  
+  // Smooth scroll to the corresponding section instead of hiding/showing pages
+  const navHeight = 80; // approximate fixed nav height
+  const targetPosition = targetSection.getBoundingClientRect().top + window.pageYOffset - navHeight;
+  
+  window.scrollTo({
+    top: Math.max(0, targetPosition),
+    behavior: 'smooth'
+  });
   
   // Update active nav link highlight
   navLinks.forEach(link => {
     link.classList.toggle('active', link.getAttribute('data-page') === targetId);
   });
-  
-  // Update URL hash
-  if (targetId && targetId !== 'home') {
-    window.history.pushState(null, null, `#${targetId}`);
-  } else {
-    window.history.pushState(null, null, window.location.pathname);
-  }
-  
+
   // Trigger animations for newly visible section (kept for consistency)
   setTimeout(() => {
-    initPageAnimations();
+    if (typeof initPageAnimations === 'function') {
+      initPageAnimations();
+    }
   }, 100);
 }
+
+// Make navigateToPage globally accessible for onclick handlers
+window.navigateToPage = navigateToPage;
 
 function initCVDropdown() {
   const cvDropdownToggle = document.getElementById('cv-dropdown-toggle');
@@ -630,7 +638,15 @@ function initCVDropdown() {
       closeCVDropdown();
     }
   });
-  
+
+  // Close dropdown when language is toggled (English ↔ Arabic)
+  const langToggleBtn = document.getElementById('lang-toggle');
+  if (langToggleBtn) {
+    langToggleBtn.addEventListener('click', () => {
+      closeCVDropdown();
+    });
+  }
+
   function openCVDropdown() {
     cvDropdownMenu.classList.add('active');
     cvDropdownToggle.setAttribute('aria-expanded', 'true');
@@ -711,8 +727,10 @@ function initLanguageSystem() {
   const langToggle = document.getElementById('lang-toggle');
   if (!langToggle) return;
   
-  // Set initial language
-  setLanguage(currentLanguage);
+  // Set initial language - use a small delay to ensure DOM is fully ready
+  setTimeout(() => {
+    setLanguage(currentLanguage);
+  }, 50);
   
   // Toggle language on button click
   langToggle.addEventListener('click', () => {
@@ -727,6 +745,12 @@ function switchLanguage(newLang) {
   // Update currentLanguage BEFORE calling setLanguage so populateTimeline uses correct language
   currentLanguage = newLang;
   localStorage.setItem('portfolio-language', newLang);
+  // Keep a mirror on window for any code that reads it
+  try {
+    window.currentLanguage = newLang;
+  } catch (e) {
+    // ignore if window is not available (e.g. during SSR, which we don't use here)
+  }
   
   // Add transition class for animation
   document.body.classList.add('language-transitioning');
@@ -784,35 +808,56 @@ function setLanguage(lang) {
     }
   });
   
-  // Update hero section
-  const heroGreeting = document.querySelector('.hero-greeting');
-  if (heroGreeting) heroGreeting.textContent = t.hero.greeting;
-  
-  const heroTitle = document.querySelector('.hero-title .title-line');
-  if (heroTitle) heroTitle.textContent = t.hero.name;
-  
-  const heroDegree = document.querySelector('.hero-degree');
-  if (heroDegree) heroDegree.textContent = t.hero.degree;
-  
-  const heroDescription = document.querySelector('.hero-description');
-  if (heroDescription) heroDescription.textContent = t.hero.description;
-  
-  const statLabels = document.querySelectorAll('.stat-label');
-  if (statLabels.length >= 4) {
-    statLabels[0].textContent = t.hero.cgpa;
-    statLabels[1].textContent = t.hero.graduation;
-    statLabels[2].textContent = t.hero.languages;
-    statLabels[3].textContent = t.hero.projects;
+  // Update hero section - try multiple selector strategies
+  const heroGreeting = document.querySelector('#page-home .hero-greeting') || document.querySelector('.hero-greeting');
+  if (heroGreeting) {
+    heroGreeting.textContent = t.hero.greeting;
   }
   
-  const startConvBtn = document.querySelector('.hero-actions .btn-primary span');
-  if (startConvBtn) startConvBtn.textContent = t.hero.startConversation;
+  const heroTitle = document.querySelector('#page-home .hero-title .title-line') || document.querySelector('.hero-title .title-line');
+  if (heroTitle) {
+    heroTitle.textContent = t.hero.name;
+  }
   
-  const viewProjectsBtn = document.querySelector('.hero-actions .btn-secondary span');
-  if (viewProjectsBtn) viewProjectsBtn.textContent = t.hero.viewProjects;
+  const heroDegree = document.querySelector('#page-home .hero-degree') || document.querySelector('.hero-degree');
+  if (heroDegree) {
+    heroDegree.textContent = t.hero.degree;
+  }
   
-  const heroQuote = document.querySelector('.hero-quote p');
-  if (heroQuote) heroQuote.textContent = t.hero.quote;
+  const heroDescription = document.querySelector('#page-home .hero-description') || document.querySelector('.hero-description');
+  if (heroDescription) {
+    heroDescription.textContent = t.hero.description;
+  }
+  
+  const statLabels = document.querySelectorAll('#page-home .stat-label');
+  const statLabelsFallback = statLabels.length >= 4 ? statLabels : document.querySelectorAll('.stat-label');
+  if (statLabelsFallback.length >= 4) {
+    statLabelsFallback[0].textContent = t.hero.cgpa;
+    statLabelsFallback[1].textContent = t.hero.graduation;
+    statLabelsFallback[2].textContent = t.hero.languages;
+    statLabelsFallback[3].textContent = t.hero.projects;
+  }
+  
+  const startConvBtn = document.querySelector('#page-home .hero-actions .btn-primary span') || document.querySelector('.hero-actions .btn-primary span');
+  if (startConvBtn) {
+    startConvBtn.textContent = t.hero.startConversation;
+  }
+  
+  const viewProjectsBtn = document.querySelector('#page-home .hero-actions .btn-secondary span') || document.querySelector('.hero-actions .btn-secondary span');
+  if (viewProjectsBtn) {
+    viewProjectsBtn.textContent = t.hero.viewProjects;
+  }
+  
+  const heroQuote = document.querySelector('#page-home .hero-quote p') || document.querySelector('.hero-quote p');
+  if (heroQuote) {
+    heroQuote.textContent = t.hero.quote;
+  }
+  
+  // Generic text elements with data-en / data-ar attributes (e.g., mobile contact buttons)
+  document.querySelectorAll('[data-en][data-ar]').forEach(el => {
+    const text = el.getAttribute(lang === 'ar' ? 'data-ar' : 'data-en');
+    if (text) el.textContent = text;
+  });
   
   // Update about section
   const aboutLabel = document.querySelector('#page-about .page-label');
@@ -1270,7 +1315,8 @@ function populateDynamicContent() {
 const customSVGLogos = {
   'gRPC': `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 96 96" height="48" width="48"><path fill="#244b5a" d="M11.4052 61.9509c.6979.9285 1.6048 1.6794 2.6473 2.1918 1.1274.5584 2.3714.8408 3.6294.8238 1.0172.0266 2.0297-.1461 2.9805-.5084.7605-.2988 1.4394-.7734 1.9811-1.385.5084-.5959.8795-1.2963 1.0871-2.0515.2264-.8163.3384-1.66.333-2.507v-2.9454h-.0699c-.6593 1.045-1.6103 1.8739-2.7355 2.3844-1.0728.4671-2.2311.7059-3.4012.7013-1.1465.0086-2.2838-.2057-3.3485-.6311-1.0082-.4003-1.9306-.9894-2.7177-1.7358-.781-.7499-1.4014-1.6507-1.8235-2.6478-.44911-1.0526-.67592-2.1866-.6662-3.331-.00969-1.1411.20483-2.2729.63137-3.3313.40313-1.0013.99203-1.9174 1.73553-2.6999.7434-.7761 1.6387-1.3909 2.63-1.806 1.0608-.441 2.2001-.6617 3.3488-.6486.5231.003 1.045.0499 1.5602.14.5666.099 1.1197.2638 1.6481.4911 1.2545.5437 2.3389 1.4161 3.1386 2.525h.0699v-2.7354h2.3146v16.2705c-.0079.956-.1197 1.9083-.3333 2.8402-.2234 1.0076-.6664 1.9534-1.2973 2.7701-.7179.901-1.6366 1.6216-2.6826 2.1043-1.1457.5608-2.6419.8411-4.4886.8411-1.5001.0256-2.9902-.2485-4.383-.8063-1.3326-.5708-2.5279-1.4196-3.50622-2.4894l1.71802-1.8237Zm.4207-11.7116c-.0058.8357.1552 1.6641.4735 2.4368.3035.7415.7435 1.4195 1.2971 1.9986.5504.5741 1.2049 1.0382 1.9287 1.3678.754.3426 1.5738.5162 2.402.5083 1.6401.0059 3.2206-.6149 4.4182-1.7355.5881-.555 1.0488-1.2311 1.3502-1.9816.3247-.825.4741-1.7086.4384-2.5944.0059-.831-.1366-1.6564-.4209-2.4373-.2701-.7422-.6876-1.4221-1.2274-1.9987-.5548-.5845-1.223-1.0498-1.9636-1.3675-.82-.3485-1.7039-.5218-2.5949-.5086-.8282-.0076-1.648.166-2.402.5086-.7236.3299-1.378.7939-1.9287 1.3675-.5535.5794-.9935 1.2573-1.2974 1.9987-.3181.7729-.479 1.6014-.4732 2.4373Zm23.9844 8.4156h-2.5245V33.8282H40.93c2.5247 0 4.5175.5493 5.9786 1.6481 1.4608 1.099 2.1914 2.7588 2.1917 4.9793.0445 1.6118-.5403 3.1776-1.6305 4.3656-1.0872 1.1807-2.6593 1.8645-4.7163 2.0512l7.1534 11.7825h-3.086l-6.8024-11.5367h-4.208l-.0002 11.5367Zm0-13.851h4.4886c.9644.0203 1.9268-.0978 2.8577-.3508.6809-.182 1.3186-.4978 1.8761-.929.4497-.3619.7997-.8326 1.0167-1.3675.2134-.5415.3205-1.119.3157-1.701.0026-.5702-.1046-1.1356-.3157-1.6654-.2196-.5384-.5688-1.0143-1.0167-1.3852-.5521-.4398-1.1917-.7566-1.8761-.9293-.933-.2402-1.8945-.3522-2.8577-.333h-4.4886v8.6612Zm18.4441-10.9757h7.2238c2.5245 0 4.5173.5494 5.9783 1.6483 1.4608 1.0991 2.1914 2.7589 2.1918 4.9794 0 2.2212-.7306 3.8867-2.1918 4.9967-1.461 1.1106-3.4538 1.6658-5.9783 1.6656h-4.6988v11.5367h-2.525V33.8282Zm2.5252 10.9759h4.0677c.9644.0203 1.9268-.0978 2.8577-.3507.6808-.1821 1.3186-.498 1.8761-.9291.4497-.3619.7996-.8326 1.0167-1.3675.2135-.5414.3206-1.1189.3157-1.7009.0027-.5703-.1045-1.1357-.3157-1.6654-.2196-.5385-.5688-1.0143-1.0167-1.3853-.5521-.4396-1.1917-.7565-1.8761-.9293-.933-.2401-1.8945-.3522-2.8577-.3329h-4.0679l.0002 8.6611ZM95 54.7276c-.4443.6582-.9682 1.2589-1.56 1.7884-.6406.5755-1.3539 1.0647-2.1216 1.4549-.8196.4185-1.6842.7421-2.5771.9646-.9579.2378-1.9415.3555-2.9284.3505-1.7604.0165-3.5065-.3172-5.1368-.9816-3.1091-1.2564-5.5719-3.7256-6.8204-6.8379-.6681-1.66-1.0017-3.4357-.9816-5.225-.02-1.7892.3136-3.5649.9816-5.2249 1.2484-3.1122 3.7113-5.5813 6.8204-6.8374 1.6302-.6646 3.3764-.9984 5.1368-.9819 1.5867.0085 3.1574.3178 4.6288.9115 1.5694.628 2.9388 1.6704 3.9622 3.0158l-2.2088 1.6481c-.2968-.442-.6506-.843-1.0523-1.1923-.464-.4109-.976-.764-1.5249-1.0518-.5864-.3089-1.2035-.5557-1.8412-.7364-.6383-.1847-1.2994-.2791-1.9638-.2806-1.4729-.0242-2.9332.2751-4.2779.8766-1.2199.5535-2.3122 1.3533-3.2083 2.3492-.8868.9987-1.5716 2.1599-2.0166 3.4192-.9349 2.6431-.9349 5.5268 0 8.1699.4449 1.2593 1.1297 2.4204 2.0166 3.4189.8958.9962 1.9882 1.7962 3.2083 2.3494 1.3446.602 2.8049.9014 4.2779.8769.6527.0003 1.3041-.0584 1.9462-.1753.6533-.1202 1.2893-.3204 1.8937-.5961.637-.2922 1.2277-.6763 1.7533-1.14.5904-.5274 1.1038-1.1352 1.5251-1.8054L95 54.7276Z"/><path fill="url(#a)" d="m7.53809 41.9566-6.53851-6.49 6.49007-6.5386 6.53855 6.4901-6.49011 6.5385Z"/><path fill="url(#b)" d="m25.3301 39.1863-3.8352-3.8067 3.8068-3.8352 3.8351 3.8068-3.8067 3.8351Z"/><path fill="#244b5a" d="M7.77596 31.5034 3.8457 35.4631l3.95949 3.9303 3.34981-.0125-3.51277-3.4845 17.34547-.0643-1.5202 1.5305 1.6749-.0061 1.9653-1.9799-1.9799-1.965-1.6749.0061 1.5317 1.5195-17.34553.0643 3.48643-3.5105-3.34954.0124Z"/><defs><linearGradient id="a" x1="-646.313" x2="656.545" y1="-607.051" y2="-611.894" gradientUnits="userSpaceOnUse"><stop stop-color="#72c9c9"/><stop offset="1" stop-color="#02b0ad"/></linearGradient><linearGradient id="b" x1="-358.188" x2="406.007" y1="-341.49" y2="-344.331" gradientUnits="userSpaceOnUse"><stop stop-color="#03b6b4"/><stop offset="1" stop-color="#74cbca"/></linearGradient></defs></svg>`,
   'AWS RDS': `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" height="48" width="48"><path fill="#252f3e" d="M6.872425 10.077275c0 0.289175 0.03125 0.52365 0.085975 0.6956 0.062525 0.17195 0.140675 0.359525 0.2501 0.56275 0.039075 0.062525 0.0547 0.12505 0.0547 0.17975 0 0.078175 -0.046875 0.156325 -0.1485 0.234475l-0.4924 0.328275c-0.070325 0.0469 -0.140675 0.07035 -0.2032 0.07035 -0.07815 0 -0.156325 -0.0391 -0.234475 -0.109425 -0.109425 -0.11725 -0.203225 -0.2423 -0.281375 -0.36735 -0.07815 -0.132875 -0.156325 -0.281375 -0.2423 -0.46115 -0.609625 0.719075 -1.375575 1.0786 -2.29785 1.0786 -0.656525 0 -1.1801925 -0.187575 -1.56317 -0.56275 -0.382975 -0.37515 -0.5783725 -0.875375 -0.5783725 -1.500625 0 -0.66435 0.234475 -1.20365 0.7112425 -1.610075 0.4767675 -0.406425 1.10985 -0.60965 1.914875 -0.60965 0.26575 0 0.5393 0.02345 0.8285 0.06255 0.289175 0.039075 0.586175 0.1016 0.898825 0.17195v-0.570575c0 -0.594 -0.125075 -1.00825 -0.36735 -1.250525 -0.250125 -0.2423 -0.672175 -0.359525 -1.274 -0.359525 -0.27355 0 -0.554925 0.03125 -0.8441 0.1016 -0.2892 0.07035 -0.57055 0.156325 -0.844115 0.265725 -0.125055 0.054725 -0.218845 0.085975 -0.273555 0.101625 -0.0547125 0.015625 -0.09379 0.02345 -0.125055 0.02345 -0.10942 0 -0.1641325 -0.078175 -0.1641325 -0.2423v-0.382975c0 -0.12505 0.0156325 -0.21885 0.0547125 -0.27355 0.0390775 -0.054725 0.10942 -0.109425 0.2188425 -0.16415 0.273555 -0.140675 0.6018275 -0.257925 0.9848025 -0.3517 0.382975 -0.1016 0.7894 -0.1485 1.219275 -0.1485 0.930075 0 1.61005 0.211025 2.04775 0.633075 0.429875 0.42205 0.648725 1.06295 0.648725 1.9227v2.53235h0.015625Zm-3.17325 1.188c0.257925 0 0.523675 -0.0469 0.80505 -0.1407 0.28135 -0.093775 0.531475 -0.265725 0.7425 -0.5002 0.12505 -0.1485 0.21885 -0.312625 0.265725 -0.500225 0.0469 -0.187575 0.078175 -0.414225 0.078175 -0.679975v-0.32825c-0.226675 -0.054725 -0.46895 -0.101625 -0.719075 -0.132875 -0.2501 -0.031275 -0.4924 -0.0469 -0.734675 -0.0469 -0.523675 0 -0.90665 0.1016 -1.164575 0.312625 -0.257925 0.211025 -0.382975 0.50805 -0.382975 0.898825 0 0.36735 0.0938 0.6409 0.2892 0.828475 0.187575 0.1954 0.461125 0.2892 0.82065 0.2892Zm6.27615 0.8441c-0.1407 0 -0.2345 -0.02345 -0.297025 -0.07815 -0.062525 -0.0469 -0.117225 -0.156325 -0.164125 -0.304825L7.67745 5.68475c-0.0469 -0.156325 -0.07035 -0.257925 -0.07035 -0.312625 0 -0.12505 0.062525 -0.1954 0.1876 -0.1954h0.76595c0.1485 0 0.2501 0.02345 0.3048 0.07815 0.06255 0.0469 0.109425 0.156325 0.156325 0.304825l1.313075 5.1741 1.219275 -5.1741c0.039075 -0.156325 0.085975 -0.257925 0.1485 -0.304825s0.17195 -0.07815 0.312625 -0.07815h0.625275c0.1485 0 0.2501 0.02345 0.312625 0.07815 0.062525 0.0469 0.11725 0.156325 0.1485 0.304825l1.2349 5.236625 1.35215 -5.236625c0.0469 -0.156325 0.1016 -0.257925 0.156325 -0.304825 0.062525 -0.0469 0.164125 -0.07815 0.3048 -0.07815h0.726875c0.125075 0 0.1954 0.062525 0.1954 0.1954 0 0.039075 -0.0078 0.07815 -0.015625 0.12505s-0.02345 0.109425 -0.0547 0.1954l-1.883625 6.04165c-0.0469 0.156325 -0.1016 0.257925 -0.16415 0.304825 -0.062525 0.046875 -0.164125 0.07815 -0.297 0.07815h-0.67215c-0.1485 0 -0.2501 -0.02345 -0.31265 -0.07815 -0.062525 -0.054725 -0.117225 -0.156325 -0.1485 -0.31265L12.31225 6.685175l-1.20365 5.033425c-0.039075 0.1563 -0.085975 0.257925 -0.1485 0.312625 -0.062525 0.0547 -0.17195 0.07815 -0.312625 0.07815h-0.67215Zm10.04335 0.21105c-0.406425 0 -0.81285 -0.0469 -1.203625 -0.1407 -0.3908 -0.0938 -0.695625 -0.1954 -0.898825 -0.312625 -0.12505 -0.07035 -0.211025 -0.1485 -0.2423 -0.21885 -0.03125 -0.07035 -0.0469 -0.1485 -0.0469 -0.21885v-0.3986c0 -0.164125 0.062525 -0.2423 0.179775 -0.2423 0.0469 0 0.0938 0.007825 0.140675 0.02345 0.0469 0.015625 0.11725 0.0469 0.1954 0.07815 0.26575 0.11725 0.554925 0.21105 0.85975 0.273575 0.312625 0.062525 0.61745 0.093775 0.930075 0.093775 0.4924 0 0.875375 -0.085975 1.141125 -0.257925 0.26575 -0.17195 0.406425 -0.42205 0.406425 -0.7425 0 -0.21885 -0.07035 -0.3986 -0.211025 -0.5471 -0.1407 -0.1485 -0.406425 -0.281375 -0.7894 -0.406425l-1.1333 -0.351725c-0.57055 -0.17975 -0.992625 -0.4455 -1.25055 -0.7972 -0.257925 -0.3439 -0.390775 -0.726875 -0.390775 -1.1333 0 -0.328275 0.070325 -0.617475 0.211025 -0.867575 0.140675 -0.2501 0.32825 -0.46895 0.562725 -0.6409 0.234475 -0.17975 0.500225 -0.312625 0.81285 -0.406425 0.31265 -0.093775 0.6409 -0.132875 0.9848 -0.132875 0.17195 0 0.351725 0.007825 0.523675 0.031275 0.17975 0.02345 0.3439 0.0547 0.508025 0.085975 0.156325 0.039075 0.304825 0.07815 0.4455 0.12505 0.1407 0.0469 0.2501 0.0938 0.328275 0.1407 0.109425 0.062525 0.187575 0.12505 0.234475 0.195375 0.0469 0.062525 0.07035 0.1485 0.07035 0.257925v0.36735c0 0.164125 -0.06255 0.2501 -0.179775 0.2501 -0.062525 0 -0.164125 -0.03125 -0.297 -0.093775 -0.4455 -0.203225 -0.945725 -0.304825 -1.50065 -0.304825 -0.4455 0 -0.797225 0.07035 -1.0395 0.21885 -0.2423 0.1485 -0.36735 0.37515 -0.36735 0.6956 0 0.21885 0.07815 0.406425 0.234475 0.554925 0.156325 0.1485 0.4455 0.297 0.85975 0.429875l1.10985 0.351725c0.562725 0.17975 0.96915 0.429875 1.21145 0.750325 0.2423 0.32045 0.359525 0.687775 0.359525 1.0942 0 0.3361 -0.070325 0.6409 -0.2032 0.90665 -0.1407 0.265725 -0.328275 0.5002 -0.570575 0.6878 -0.242275 0.1954 -0.531475 0.336075 -0.86755 0.437675 -0.3517 0.109425 -0.71905 0.16415 -1.117675 0.16415Z" stroke-width="0.25"/><path fill="#FF9900" d="M21.496 16.118825c-2.571425 1.89925 -6.3074 2.9075 -9.519725 2.9075 -4.501925 0 -8.55835 -1.6648 -11.6221675 -4.4316 -0.2422905 -0.21885 -0.0234475 -0.51585 0.26574 -0.3439C3.933775 16.173525 8.02145 17.3381 12.24985 17.3381c2.852775 0 5.986925 -0.594025 8.870975 -1.8133 0.429875 -0.195375 0.797225 0.281375 0.375175 0.594025Zm1.070775 -1.219275c-0.328275 -0.422075 -2.172825 -0.203225 -3.009125 -0.101625 -0.2501 0.031275 -0.289175 -0.187575 -0.062525 -0.3517 1.4694 -1.0317 3.8845 -0.7347 4.16585 -0.3908 0.281375 0.351725 -0.07815 2.766825 -1.45375 3.923575 -0.211025 0.17975 -0.414225 0.085975 -0.32045 -0.148525 0.31265 -0.77375 1.00825 -2.5167 0.68 -2.930925Z" stroke-width="0.25"/></svg>`,
-  'Tableau': `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" height="48" width="48"><path fill="#7099a6" d="M11.626475 1.553125v1.068575h-1.911275v0.695h1.911275v2.128475h0.74715v-2.128475h1.95905v-0.695h-1.95905V0.4888925h-0.74715V1.553125Z" stroke-width="0.25"/><path fill="#eb912c" d="M5.380025 4.263625v1.55075H2.48706v0.973H5.380025v3.149275h1.072925V6.787375h2.936425v-0.973H6.45295V2.7129h-1.072925v1.550725Z" stroke-width="0.25"/><path fill="#59879b" d="M17.50345 4.263625v1.55075H14.610475v1.0208h2.892975v3.101475h1.11635V6.835175h2.892975v-1.0208H18.6198V2.7129h-1.11635v1.550725Z" stroke-width="0.25"/><path fill="#e8762c" d="M11.348275 9.54575v1.737525h-3.21875v1.29445h3.21875v3.47505h1.30315V12.577725h3.21875v-1.29445h-3.21875V7.808225h-1.30315v1.737525Z" stroke-width="0.25"/><path fill="#5b6591" d="M20.813675 10.4231v1.0903h-1.95905v0.8818h1.95905v2.17625h0.97735v-2.17625h1.95905v-0.8818h-1.95905v-2.17625h-0.97735v1.08595Z" stroke-width="0.25"/><path fill="#7099a6" d="M2.161275 10.518825v1.042525H0.25v0.73845h1.911275v2.085025h0.747125v-2.085025l1.959075 -0.0695v-0.66895h-1.959075v-2.085025H2.161275v1.0425Z" stroke-width="0.25"/><path fill="#c72035" d="M5.380025 15.4272v1.55075H2.48706v1.020775H5.380025v3.1015h1.116375v-3.1015h2.892975v-1.020775H6.4964V13.876475h-1.116375v1.550725Z" stroke-width="0.25"/><path fill="#1f447e" d="M17.50345 15.4272v1.55075H14.610475v0.973h2.892975v3.149275h1.11635V17.95095h2.892975v-0.973H18.6198V13.876475h-1.11635v1.550725Z" stroke-width="0.25"/><path fill="#5b6591" d="M11.5351 19.3669v1.08595h-1.95905v0.8818h1.95905v2.17625h0.977375v-2.17625h1.95905v-0.8818h-1.95905v-2.17625h-0.977375v1.0903Z" stroke-width="0.25"/></svg>`
+  'Tableau': `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" height="48" width="48"><path fill="#7099a6" d="M11.626475 1.553125v1.068575h-1.911275v0.695h1.911275v2.128475h0.74715v-2.128475h1.95905v-0.695h-1.95905V0.4888925h-0.74715V1.553125Z" stroke-width="0.25"/><path fill="#eb912c" d="M5.380025 4.263625v1.55075H2.48706v0.973H5.380025v3.149275h1.072925V6.787375h2.936425v-0.973H6.45295V2.7129h-1.072925v1.550725Z" stroke-width="0.25"/><path fill="#59879b" d="M17.50345 4.263625v1.55075H14.610475v1.0208h2.892975v3.101475h1.11635V6.835175h2.892975v-1.0208H18.6198V2.7129h-1.11635v1.550725Z" stroke-width="0.25"/><path fill="#e8762c" d="M11.348275 9.54575v1.737525h-3.21875v1.29445h3.21875v3.47505h1.30315V12.577725h3.21875v-1.29445h-3.21875V7.808225h-1.30315v1.737525Z" stroke-width="0.25"/><path fill="#5b6591" d="M20.813675 10.4231v1.0903h-1.95905v0.8818h1.95905v2.17625h0.97735v-2.17625h1.95905v-0.8818h-1.95905v-2.17625h-0.97735v1.08595Z" stroke-width="0.25"/><path fill="#7099a6" d="M2.161275 10.518825v1.042525H0.25v0.73845h1.911275v2.085025h0.747125v-2.085025l1.959075 -0.0695v-0.66895h-1.959075v-2.085025H2.161275v1.0425Z" stroke-width="0.25"/><path fill="#c72035" d="M5.380025 15.4272v1.55075H2.48706v1.020775H5.380025v3.1015h1.116375v-3.1015h2.892975v-1.020775H6.4964V13.876475h-1.116375v1.550725Z" stroke-width="0.25"/><path fill="#1f447e" d="M17.50345 15.4272v1.55075H14.610475v0.973h2.892975v3.149275h1.11635V17.95095h2.892975v-0.973H18.6198V13.876475h-1.11635v1.550725Z" stroke-width="0.25"/><path fill="#5b6591" d="M11.5351 19.3669v1.08595h-1.95905v0.8818h1.95905v2.17625h0.977375v-2.17625h1.95905v-0.8818h-1.95905v-2.17625h-0.977375v1.0903Z" stroke-width="0.25"/></svg>`,
+  'Google Antigravity': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" height="48" width="48"><defs><linearGradient id="antigravity-gradient" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#4285F4;stop-opacity:1" /><stop offset="25%" style="stop-color:#EA4335;stop-opacity:1" /><stop offset="50%" style="stop-color:#FBBC04;stop-opacity:1" /><stop offset="75%" style="stop-color:#34A853;stop-opacity:1" /><stop offset="100%" style="stop-color:#4285F4;stop-opacity:1" /></linearGradient></defs><circle cx="24" cy="24" r="20" fill="url(#antigravity-gradient)" opacity="0.9"/><path d="M24 8 L20 16 L28 16 Z" fill="white" opacity="0.95"/><path d="M24 40 L20 32 L28 32 Z" fill="white" opacity="0.95"/><circle cx="24" cy="24" r="6" fill="white" opacity="0.8"/><path d="M18 24 L24 18 L30 24 L24 30 Z" fill="#4285F4" opacity="0.7"/></svg>`
 };
 
 // Tech Stack Logo Mapping
@@ -1307,6 +1353,7 @@ const techLogos = {
   'Notion': 'notion',
   'Linux Basics': 'linux',
   'Microsoft Office': 'microsoft',
+  'Google Antigravity': 'googleantigravity',
   'Interior Design': 'sketchup',
   'SketchUp / 5D Planner': 'sketchup',
   'Modern Farming': 'agro',
@@ -1339,7 +1386,7 @@ function populateTechStack() {
     // Tools
     'Git', 'GitHub', 'Docker', 'Firebase', 'Tableau',
     'Cursor IDE', 'VS Code', 'Replit', 'Framer',
-    'Notion', 'Linux Basics', 'Microsoft Office',
+    'Notion', 'Linux Basics', 'Microsoft Office', 'Google Antigravity',
     // Other Domains
     'Interior Design', 'SketchUp / 5D Planner',
     'Modern Farming', 'Canva Pro', 'AutoCAD',
@@ -1576,11 +1623,41 @@ function populateTimeline() {
     
     // Animate in using global observer pattern
     requestAnimationFrame(() => {
-      if (globalAnimationObserver && !animatedElementsSet.has(timelineItem)) {
-        globalAnimationObserver.observe(timelineItem);
+      // Check if element is already in viewport - make visible immediately
+      const rect = timelineItem.getBoundingClientRect();
+      const isInViewport = rect.top < window.innerHeight && rect.bottom > 0;
+      
+      if (isInViewport) {
+        // If already visible, add visible class immediately with a small delay for animation
+        setTimeout(() => {
+          timelineItem.classList.add('visible');
+          animatedElementsSet.add(timelineItem);
+        }, index * 100);
+      } else {
+        // Otherwise, observe it for when it comes into view
+        if (globalAnimationObserver && !animatedElementsSet.has(timelineItem)) {
+          globalAnimationObserver.observe(timelineItem);
+        }
+        // Fallback: make visible after a delay if observer doesn't trigger
+        setTimeout(() => {
+          if (!timelineItem.classList.contains('visible')) {
+            timelineItem.classList.add('visible');
+            animatedElementsSet.add(timelineItem);
+          }
+        }, 1000 + (index * 100));
       }
     });
   });
+  
+  // Ensure all timeline items are observed after creation
+  setTimeout(() => {
+    const timelineItems = document.querySelectorAll('.timeline-item:not(.visible)');
+    timelineItems.forEach(item => {
+      if (globalAnimationObserver && !animatedElementsSet.has(item)) {
+        globalAnimationObserver.observe(item);
+      }
+    });
+  }, 100);
 }
 
 // Projects
@@ -1596,83 +1673,103 @@ function populateProjects() {
   const projects = [
     {
       badge: 'Featured',
+      badgeAr: 'مميز',
       title: 'Personal Portfolio Website',
+      titleAr: 'موقع المحفظة الشخصي',
       meta: 'HTML · CSS · JavaScript',
       description: 'Designed and deployed ashfaaqkt.com with performance and clean UX top-of-mind. Built as a static site and hosted via GitHub, using a custom domain purchased from GoDaddy. Features modern animations, responsive design, and optimized loading.',
       descriptionAr: 'تم تصميم ونشر ashfaaqkt.com مع التركيز على الأداء وتجربة المستخدم النظيفة. تم بناؤه كموقع ثابت ومستضاف عبر GitHub مع ربط نطاق مخصص تم شراؤه من GoDaddy. يتميز بالرسوم المتحركة الحديثة والتصميم المتجاوب والتحميل المحسّن.',
-      link: { text: 'Visit Website', href: 'https://ashfaaqkt.com' }
+      link: { text: 'Visit Website', textAr: 'زيارة الموقع', href: 'https://ashfaaqkt.com' }
     },
     {
       badge: 'FinTech',
+      badgeAr: 'التكنولوجيا المالية',
       title: 'Banking gRPC System',
+      titleAr: 'نظام Banking gRPC',
       meta: 'Python · SQL · gRPC',
       description: 'Secure transaction system with client/server architecture, authentication layers, and SQL-backed persistence. Implements robust error handling and transaction management for financial operations.',
       descriptionAr: 'نظام معاملات آمن مع بنية عميل/خادم وطبقات المصادقة والاستمرارية المدعومة بـ SQL. ينفذ معالجة أخطاء قوية وإدارة معاملات للعمليات المالية.',
-      link: { text: 'View on GitHub', href: 'https://github.com/ashfaaqkt/Banking-gRPC-System' }
+      link: { text: 'View on GitHub', textAr: 'عرض على GitHub', href: 'https://github.com/ashfaaqkt/Banking-gRPC-System' }
     },
     {
       badge: 'Cloud',
+      badgeAr: 'السحابة',
       title: 'Database & AWS RDS Integration',
+      titleAr: 'تكامل قاعدة البيانات و AWS RDS',
       meta: 'SQL · AWS · Cloud',
       description: 'Deployed production-ready database schemas on AWS RDS, enabling scalable data storage with automated backups, monitoring, and high availability. Demonstrates cloud infrastructure expertise.',
       descriptionAr: 'تم نشر مخططات قاعدة بيانات جاهزة للإنتاج على AWS RDS، مما يتيح تخزين بيانات قابل للتوسع مع النسخ الاحتياطي التلقائي والمراقبة والتوفر العالي. يظهر خبرة في البنية التحتية السحابية.',
-      link: { text: 'View on GitHub', href: 'https://github.com/ashfaaqkt/Database-AWS-RDS-Integration' }
+      link: { text: 'View on GitHub', textAr: 'عرض على GitHub', href: 'https://github.com/ashfaaqkt/Database-AWS-RDS-Integration' }
     },
     {
       badge: 'Data Analysis',
+      badgeAr: 'تحليل البيانات',
       title: 'Tableau Mental Health Data Analysis',
+      titleAr: 'تحليل بيانات الصحة العقلية في Tableau',
       meta: 'Tableau · Data Visualization',
       description: 'Interactive visualizations using charts, graphs, and trend analysis to uncover mental health patterns across different demographic groups. Transforms raw data into actionable insights.',
       descriptionAr: 'تصورات تفاعلية باستخدام الرسوم البيانية والرسوم والتحليل الاتجاهي للكشف عن أنماط الصحة العقلية عبر مجموعات ديموغرافية مختلفة. يحول البيانات الخام إلى رؤى قابلة للتنفيذ.',
-      link: { text: 'View on GitHub', href: 'https://github.com/ashfaaqkt/Tableau-Mental-Health-Data-Analysis-Project' }
+      link: { text: 'View on GitHub', textAr: 'عرض على GitHub', href: 'https://github.com/ashfaaqkt/Tableau-Mental-Health-Data-Analysis-Project' }
     },
     {
       badge: 'Data Viz',
+      badgeAr: 'تصور البيانات',
       title: 'Airbnb Dashboards',
+      titleAr: 'لوحات معلومات Airbnb',
       meta: 'Tableau · Business Intelligence',
       description: 'Visualized pricing, occupancy, and demand insights to support rental management decisions. Created comprehensive dashboards for market analysis and revenue optimization.',
       descriptionAr: 'تصور رؤى التسعير والإشغال والطلب لدعم قرارات إدارة الإيجار. إنشاء لوحات معلومات شاملة لتحليل السوق وتحسين الإيرادات.',
-      link: { text: 'View on GitHub', href: 'https://github.com/ashfaaqkt/Airbnb-Dashboard-in-Tableau' }
+      link: { text: 'View on GitHub', textAr: 'عرض على GitHub', href: 'https://github.com/ashfaaqkt/Airbnb-Dashboard-in-Tableau' }
     },
     {
       badge: 'Database',
+      badgeAr: 'قاعدة البيانات',
       title: 'Education System Database',
+      titleAr: 'قاعدة بيانات نظام التعليم',
       meta: 'SQL · Database Design',
       description: 'Complete SQL database system with schema design, data management, and complex queries supporting course assignments, enrollments, and student-instructor workflows. Demonstrates advanced SQL skills.',
       descriptionAr: 'نظام قاعدة بيانات SQL كامل مع تصميم المخطط وإدارة البيانات والاستعلامات المعقدة التي تدعم مهام الدورة والتسجيلات وسير عمل الطالب-المدرب. يظهر مهارات SQL متقدمة.',
-      link: { text: 'View on GitHub', href: 'https://github.com/ashfaaqkt/Database-Creation-and-Data-Manipulation-for-an-Education-System' }
+      link: { text: 'View on GitHub', textAr: 'عرض على GitHub', href: 'https://github.com/ashfaaqkt/Database-Creation-and-Data-Manipulation-for-an-Education-System' }
     },
     {
       badge: 'Data Analysis',
+      badgeAr: 'تحليل البيانات',
       title: 'Football Player Data Analysis',
+      titleAr: 'تحليل بيانات لاعبي كرة القدم',
       meta: 'Python · Pandas · Visualization',
       description: 'End-to-end data analysis workflow covering player demographics, performance metrics, and market valuation through data cleaning, EDA, and comprehensive visualizations. Showcases data science capabilities.',
       descriptionAr: 'سير عمل تحليل بيانات شامل يغطي التركيبة السكانية للاعبين ومقاييس الأداء وتقييم السوق من خلال تنظيف البيانات والتحليل الاستكشافي والتصورات الشاملة. يعرض قدرات علم البيانات.',
-      link: { text: 'View on GitHub', href: 'https://github.com/ashfaaqkt/Football-Players-Data-Analysis-Project' }
+      link: { text: 'View on GitHub', textAr: 'عرض على GitHub', href: 'https://github.com/ashfaaqkt/Football-Players-Data-Analysis-Project' }
     },
     {
       badge: 'DevOps',
+      badgeAr: 'DevOps',
       title: 'DevOps Workflow Implementation',
+      titleAr: 'تنفيذ سير عمل DevOps',
       meta: 'Git · GitHub · Docker · Flask',
       description: 'Complete DevOps workflow with Git version control, GitHub integration, and Docker containerization for Flask applications. Demonstrates end-to-end CI/CD practices and container orchestration.',
       descriptionAr: 'سير عمل DevOps كامل مع التحكم في الإصدارات Git وتكامل GitHub وحاويات Docker لتطبيقات Flask. يظهر ممارسات CI/CD الشاملة وتنسيق الحاويات.',
-      link: { text: 'View on GitHub', href: 'https://github.com/ashfaaqkt/DevOps-Workflow-Implementation-using-Git-GitHub-Docker' }
+      link: { text: 'View on GitHub', textAr: 'عرض على GitHub', href: 'https://github.com/ashfaaqkt/DevOps-Workflow-Implementation-using-Git-GitHub-Docker' }
     },
     {
       badge: 'Systems',
+      badgeAr: 'الأنظمة',
       title: 'HTTP Client in C',
+      titleAr: 'عميل HTTP في C',
       meta: 'C · Network Programming',
       description: 'Low-level HTTP client implementation using raw TCP sockets to connect to web servers, send requests, and receive responses. Demonstrates deep understanding of network protocols and systems programming.',
       descriptionAr: 'تنفيذ عميل HTTP منخفض المستوى باستخدام مقابس TCP الخام للاتصال بخوادم الويب وإرسال الطلبات واستقبال الردود. يظهر فهماً عميقاً لبروتوكولات الشبكة وبرمجة الأنظمة.',
-      link: { text: 'View on GitHub', href: 'https://github.com/ashfaaqkt/Implementation-of-an-HTTP-Client-in-C-for-Server-Communication' }
+      link: { text: 'View on GitHub', textAr: 'عرض على GitHub', href: 'https://github.com/ashfaaqkt/Implementation-of-an-HTTP-Client-in-C-for-Server-Communication' }
     },
     {
       badge: 'UI/UX Design',
+      badgeAr: 'تصميم واجهة المستخدم',
       title: 'ETTI App UI/UX Design',
+      titleAr: 'تصميم واجهة مستخدم تطبيق ETTI',
       meta: 'MockUp (iPad) · UI/UX Design',
       description: 'A multi-service delivery and mobility app concept. ETTI, meaning "reached" in Malayalam, represents speed, trust, and reliability. The app combines food delivery, groceries, auto-rickshaw rides, porter services, and an AI assistant into one seamless platform. UI/UX mockups designed on iPad using MockUp showcase the complete visual flow.',
       descriptionAr: 'مفهوم تطبيق توصيل متعدد الخدمات والتنقل. ETTI، بمعنى "وصل" في المالايالامية، يمثل السرعة والثقة والموثوقية. يجمع التطبيق بين توصيل الطعام والبقالة وركوب الريكشا وخدمات الحمالين ومساعد ذكاء اصطناعي في منصة سلسة واحدة. النماذج الأولية لواجهة المستخدم/تجربة المستخدم المصممة على iPad باستخدام MockUp تعرض التدفق البصري الكامل.',
-      link: { text: 'View on GitHub', href: 'https://github.com/ashfaaqkt/ETTI-App-MockUp-design' }
+      link: { text: 'View on GitHub', textAr: 'عرض على GitHub', href: 'https://github.com/ashfaaqkt/ETTI-App-MockUp-design' }
     }
   ];
   
@@ -1681,16 +1778,20 @@ function populateProjects() {
     projectCard.className = 'project-card';
     projectCard.style.transitionDelay = `${index * 100}ms`;
     
-    // Use Arabic description if available and in RTL mode
+    // In RTL (Arabic) mode: keep badges, titles, meta, and button text in English (LTR),
+    // but switch only the description to the Arabic translation.
+    const badge = project.badge; // always English
+    const title = project.title; // always English
     const description = (isRTL && project.descriptionAr) ? project.descriptionAr : project.description;
+    const linkText = project.link.text; // always English (e.g., "View on GitHub", "Visit Website")
     
     projectCard.innerHTML = `
-      <span class="project-badge">${project.badge}</span>
-      <h3 class="project-title">${project.title}</h3>
+      <span class="project-badge">${badge}</span>
+      <h3 class="project-title">${title}</h3>
       <p class="project-meta">${project.meta}</p>
       <p class="project-description">${description}</p>
       <a href="${project.link.href}" target="_blank" rel="noopener noreferrer" class="project-link">
-        ${project.link.text}
+        ${linkText}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/>
         </svg>
@@ -1701,11 +1802,41 @@ function populateProjects() {
     
     // Animate in using global observer pattern
     requestAnimationFrame(() => {
-      if (globalAnimationObserver && !animatedElementsSet.has(projectCard)) {
-        globalAnimationObserver.observe(projectCard);
+      // Check if element is already in viewport - make visible immediately
+      const rect = projectCard.getBoundingClientRect();
+      const isInViewport = rect.top < window.innerHeight && rect.bottom > 0;
+      
+      if (isInViewport) {
+        // If already visible, add visible class immediately with a small delay for animation
+        setTimeout(() => {
+          projectCard.classList.add('visible');
+          animatedElementsSet.add(projectCard);
+        }, index * 100);
+      } else {
+        // Otherwise, observe it for when it comes into view
+        if (globalAnimationObserver && !animatedElementsSet.has(projectCard)) {
+          globalAnimationObserver.observe(projectCard);
+        }
+        // Fallback: make visible after a delay if observer doesn't trigger
+        setTimeout(() => {
+          if (!projectCard.classList.contains('visible')) {
+            projectCard.classList.add('visible');
+            animatedElementsSet.add(projectCard);
+          }
+        }, 1000 + (index * 100));
       }
     });
   });
+  
+  // Ensure all project cards are observed after creation
+  setTimeout(() => {
+    const projectCards = document.querySelectorAll('.project-card:not(.visible)');
+    projectCards.forEach(card => {
+      if (globalAnimationObserver && !animatedElementsSet.has(card)) {
+        globalAnimationObserver.observe(card);
+      }
+    });
+  }, 100);
 }
 
 // Skills
@@ -1725,6 +1856,7 @@ function populateSkills() {
       {
         category: 'frontend',
         title: 'Front End',
+        titleAr: 'الواجهة الأمامية',
         skills: [
           'React',
           'HTML',
@@ -1738,6 +1870,7 @@ function populateSkills() {
       {
         category: 'uiux',
         title: 'UI/UX Design',
+        titleAr: 'تصميم واجهة المستخدم',
         skills: [
           'Figma',
           'MockUp (iPad)',
@@ -1747,6 +1880,7 @@ function populateSkills() {
       {
         category: 'backend',
         title: 'Back End',
+        titleAr: 'الخلفية',
         skills: [
           'Python',
           'Node.js',
@@ -1762,6 +1896,7 @@ function populateSkills() {
       {
         category: 'mobile',
         title: 'Android / iOS Development',
+        titleAr: 'تطوير Android / iOS',
         skills: [
           'Kotlin',
           'Swift',
@@ -1771,6 +1906,7 @@ function populateSkills() {
       {
         category: 'ai',
         title: 'AI & Cloud',
+        titleAr: 'الذكاء الاصطناعي والسحابة',
         skills: [
           'LLM Prompt Engineering',
           'AI-Assisted Development',
@@ -1781,6 +1917,7 @@ function populateSkills() {
       {
         category: 'tools',
         title: 'Developer Tools',
+        titleAr: 'أدوات المطور',
         skills: [
           'Git',
           'GitHub',
@@ -1793,7 +1930,8 @@ function populateSkills() {
           'Framer',
           'Notion',
           'Linux Basics',
-          'Microsoft Office'
+          'Microsoft Office',
+          'Google Antigravity'
         ]
       },
       {
@@ -1818,6 +1956,7 @@ function populateSkills() {
       {
         category: 'others',
         title: 'Other Domains & Tools',
+        titleAr: 'مجالات وأدوات أخرى',
         skills: [
           'Interior Design',
           'SketchUp / 5D Planner',
@@ -1831,23 +1970,24 @@ function populateSkills() {
     ]
   };
   
-  // Create filters
+  // Create filters with Arabic translations
   const filterCategories = [
-    { id: 'all', label: 'All' },
-    { id: 'frontend', label: 'Front End' },
-    { id: 'uiux', label: 'UI/UX Design' },
-    { id: 'backend', label: 'Back End' },
-    { id: 'mobile', label: 'Android / iOS' },
-    { id: 'ai', label: 'AI & Cloud' },
-    { id: 'tools', label: 'Tools' },
-    { id: 'soft', label: 'Soft Skills' },
-    { id: 'others', label: 'Others' }
+    { id: 'all', label: 'All', labelAr: 'الكل' },
+    { id: 'frontend', label: 'Front End', labelAr: 'الواجهة الأمامية' },
+    { id: 'uiux', label: 'UI/UX Design', labelAr: 'تصميم واجهة المستخدم' },
+    { id: 'backend', label: 'Back End', labelAr: 'الخلفية' },
+    { id: 'mobile', label: 'Android / iOS', labelAr: 'Android / iOS' },
+    { id: 'ai', label: 'AI & Cloud', labelAr: 'الذكاء الاصطناعي والسحابة' },
+    { id: 'tools', label: 'Tools', labelAr: 'الأدوات' },
+    { id: 'soft', label: 'Soft Skills', labelAr: 'المهارات الناعمة' },
+    { id: 'others', label: 'Others', labelAr: 'أخرى' }
   ];
   
   filterCategories.forEach((filter, index) => {
     const filterBtn = document.createElement('button');
     filterBtn.className = `skill-filter ${index === 0 ? 'active' : ''}`;
-    filterBtn.textContent = filter.label;
+    const filterLabel = (isRTL && filter.labelAr) ? filter.labelAr : filter.label;
+    filterBtn.textContent = filterLabel;
     filterBtn.setAttribute('data-category', filter.id);
     filterBtn.addEventListener('click', () => {
       // Update active filter
@@ -1881,10 +2021,9 @@ function populateSkills() {
     skillCard.setAttribute('data-category', skillGroup.category);
     skillCard.style.transitionDelay = `${index * 100}ms`;
     
-    // Use Arabic translations for Soft Skills if available and in RTL mode
-    const isSoftSkills = skillGroup.category === 'soft';
-    const title = (isRTL && isSoftSkills && skillGroup.titleAr) ? skillGroup.titleAr : skillGroup.title;
-    const skills = (isRTL && isSoftSkills && skillGroup.skillsAr) ? skillGroup.skillsAr : skillGroup.skills;
+    // Use Arabic translations if available and in RTL mode
+    const title = (isRTL && skillGroup.titleAr) ? skillGroup.titleAr : skillGroup.title;
+    const skills = (isRTL && skillGroup.skillsAr) ? skillGroup.skillsAr : skillGroup.skills;
     
     const pillsHTML = skills.map(skill => 
       `<span class="skill-pill">${skill}</span>`
@@ -1901,11 +2040,41 @@ function populateSkills() {
     
     // Animate in using global observer pattern
     requestAnimationFrame(() => {
-      if (globalAnimationObserver && !animatedElementsSet.has(skillCard)) {
-        globalAnimationObserver.observe(skillCard);
+      // Check if element is already in viewport - make visible immediately
+      const rect = skillCard.getBoundingClientRect();
+      const isInViewport = rect.top < window.innerHeight && rect.bottom > 0;
+      
+      if (isInViewport) {
+        // If already visible, add visible class immediately with a small delay for animation
+        setTimeout(() => {
+          skillCard.classList.add('visible');
+          animatedElementsSet.add(skillCard);
+        }, index * 100);
+      } else {
+        // Otherwise, observe it for when it comes into view
+        if (globalAnimationObserver && !animatedElementsSet.has(skillCard)) {
+          globalAnimationObserver.observe(skillCard);
+        }
+        // Fallback: make visible after a delay if observer doesn't trigger
+        setTimeout(() => {
+          if (!skillCard.classList.contains('visible')) {
+            skillCard.classList.add('visible');
+            animatedElementsSet.add(skillCard);
+          }
+        }, 1000 + (index * 100));
       }
     });
   });
+  
+  // Ensure all skill cards are observed after creation
+  setTimeout(() => {
+    const skillCards = document.querySelectorAll('.skill-card:not(.visible)');
+    skillCards.forEach(card => {
+      if (globalAnimationObserver && !animatedElementsSet.has(card)) {
+        globalAnimationObserver.observe(card);
+      }
+    });
+  }, 100);
 }
 
 // Languages
@@ -1967,10 +2136,40 @@ function populateLanguages() {
     languagesList.appendChild(langItem);
     
     // Animate in via CSS class (avoids inline transform overriding hover)
-    setTimeout(() => {
-      langItem.classList.add('visible');
-    }, index * 80);
+    requestAnimationFrame(() => {
+      // Check if element is already in viewport - make visible immediately
+      const rect = langItem.getBoundingClientRect();
+      const isInViewport = rect.top < window.innerHeight && rect.bottom > 0;
+      
+      if (isInViewport) {
+        // If already visible, add visible class immediately
+        setTimeout(() => {
+          langItem.classList.add('visible');
+        }, index * 80);
+      } else {
+        // Otherwise, observe it for when it comes into view
+        if (globalAnimationObserver && !animatedElementsSet.has(langItem)) {
+          globalAnimationObserver.observe(langItem);
+        }
+        // Fallback: make visible after a delay if observer doesn't trigger
+        setTimeout(() => {
+          if (!langItem.classList.contains('visible')) {
+            langItem.classList.add('visible');
+          }
+        }, 1000 + (index * 80));
+      }
+    });
   });
+  
+  // Ensure all language items are observed after creation
+  setTimeout(() => {
+    const langItems = document.querySelectorAll('.language-item:not(.visible)');
+    langItems.forEach(item => {
+      if (globalAnimationObserver && !animatedElementsSet.has(item)) {
+        globalAnimationObserver.observe(item);
+      }
+    });
+  }, 100);
 }
 
 // Hobbies
@@ -2038,10 +2237,40 @@ function populateHobbies() {
     hobbiesList.appendChild(hobbyItem);
     
     // Simple fade-in via CSS class
-    setTimeout(() => {
-      hobbyItem.classList.add('visible');
-    }, index * 80);
+    requestAnimationFrame(() => {
+      // Check if element is already in viewport - make visible immediately
+      const rect = hobbyItem.getBoundingClientRect();
+      const isInViewport = rect.top < window.innerHeight && rect.bottom > 0;
+      
+      if (isInViewport) {
+        // If already visible, add visible class immediately
+        setTimeout(() => {
+          hobbyItem.classList.add('visible');
+        }, index * 80);
+      } else {
+        // Otherwise, observe it for when it comes into view
+        if (globalAnimationObserver && !animatedElementsSet.has(hobbyItem)) {
+          globalAnimationObserver.observe(hobbyItem);
+        }
+        // Fallback: make visible after a delay if observer doesn't trigger
+        setTimeout(() => {
+          if (!hobbyItem.classList.contains('visible')) {
+            hobbyItem.classList.add('visible');
+          }
+        }, 1000 + (index * 80));
+      }
+    });
   });
+  
+  // Ensure all hobby items are observed after creation
+  setTimeout(() => {
+    const hobbyItems = document.querySelectorAll('.hobby-item:not(.visible)');
+    hobbyItems.forEach(item => {
+      if (globalAnimationObserver && !animatedElementsSet.has(item)) {
+        globalAnimationObserver.observe(item);
+      }
+    });
+  }, 100);
 }
 
 // ============================================
@@ -2153,6 +2382,35 @@ function initAutoScrollNavigation() {
       }, 600);
     }
   }
+
+// ============================================
+// MOBILE CONTACT ACTIONS (PHONE / WHATSAPP)
+// ============================================
+
+function initMobileContactActions() {
+  const groups = document.querySelectorAll('.mobile-contact-group');
+  if (!groups.length) return;
+
+  groups.forEach(group => {
+    const button = group.querySelector('.mobile-contact-btn');
+    if (!button) return;
+
+    button.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = group.classList.contains('open');
+      // Close any other open menus
+      document.querySelectorAll('.mobile-contact-group.open').forEach(g => g.classList.remove('open'));
+      if (!isOpen) {
+        group.classList.add('open');
+      }
+    });
+  });
+
+  // Close menus when clicking outside
+  document.addEventListener('click', () => {
+    document.querySelectorAll('.mobile-contact-group.open').forEach(g => g.classList.remove('open'));
+  });
+}
   
   function navigateToPreviousPage() {
     if (isScrolling) return;
@@ -2279,16 +2537,49 @@ function initAutoScrollNavigation() {
 // SMOOTH SCROLLING FOR ANCHOR LINKS
 // ============================================
 
-document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-  anchor.addEventListener('click', function (e) {
-    const href = this.getAttribute('href');
-    if (href === '#' || href === '#home') {
+// Handle all anchor links (hero buttons, footer links, etc.)
+function initAnchorLinks() {
+  // Use event delegation to handle all anchor links
+  document.addEventListener('click', function(e) {
+    const anchor = e.target.closest('a[href^="#"]');
+    if (!anchor) return;
+    
+    const href = anchor.getAttribute('href');
+    
+    // Skip if it's an external link, empty, or already handled by nav links
+    if (!href || href === '#' || href.startsWith('#!')) {
+      return;
+    }
+    
+    // Skip if it's a nav link (already handled by initNavigation)
+    if (anchor.classList.contains('nav-link')) {
+      return;
+    }
+    
+    // Extract page ID from href (e.g., #connect -> connect, #projects -> projects)
+    const pageId = href.substring(1); // Remove the #
+    
+    // Map common anchor names to page IDs
+    const pageMap = {
+      'home': 'home',
+      'about': 'about',
+      'education': 'education',
+      'projects': 'projects',
+      'expertise': 'expertise',
+      'connect': 'connect'
+    };
+    
+    const targetPage = pageMap[pageId] || pageId;
+    
+    // Check if the target page exists
+    const targetSection = document.querySelector(`#page-${targetPage}`);
+    if (targetSection) {
       e.preventDefault();
-      navigateToPage('home');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      e.stopPropagation();
+      navigateToPage(targetPage);
     }
   });
-});
+}
 
 // ============================================
 // PERFORMANCE OPTIMIZATION
@@ -2319,29 +2610,23 @@ window.addEventListener('scroll', throttledScroll);
 // ============================================
 
 function initChatbot() {
-  const chatbotToggle = document.getElementById('chatbot-toggle');
-  const chatbotContainer = document.getElementById('chatbot-container');
-  const chatbotMinimize = document.getElementById('chatbot-minimize');
   const chatbotMessages = document.getElementById('chatbot-messages');
   const chatbotFaqContainer = document.getElementById('chatbot-faq-container');
-  const backToTop = document.getElementById('back-to-top');
 
-  let isOpen = false;
+  if (!chatbotMessages) return;
 
-  // Function to update chatbot language
   function updateChatbotLanguage() {
-    const lang = currentLanguage || 'en';
-    const t = translations[lang];
+    // Use the same global language state as the rest of the site
+    const lang = (typeof currentLanguage !== 'undefined' && currentLanguage) ? currentLanguage : 'en';
+    const t = translations && translations[lang] ? translations[lang] : null;
     if (!t || !t.chatbot) return;
 
-    // Update welcome message
     const welcomeMessage = chatbotMessages.querySelector('.chatbot-message-bot .message-content p');
     if (welcomeMessage) {
       welcomeMessage.textContent = t.chatbot.welcomeMessage;
     }
 
-    // Update FAQ buttons
-    if (chatbotFaqContainer) {
+    if (chatbotFaqContainer && t.chatbot.faqButtons) {
       const faqButtons = chatbotFaqContainer.querySelectorAll('.chatbot-faq-btn');
       faqButtons.forEach(button => {
         const faqType = button.getAttribute('data-faq');
@@ -2356,74 +2641,21 @@ function initChatbot() {
     }
   }
 
-  // Get FAQ answers based on current language
   function getFaqAnswers() {
-    const lang = currentLanguage || 'en';
-    const t = translations[lang];
+    if (!window.translations) return {};
+    const lang = window.currentLanguage || 'en';
+    const t = window.translations[lang];
     if (!t || !t.chatbot) return {};
     return t.chatbot.answers || {};
   }
 
-  // Toggle chatbot
-  if (chatbotToggle) {
-    chatbotToggle.addEventListener('click', () => {
-      isOpen = true;
-      chatbotContainer.classList.add('open');
-      chatbotToggle.classList.add('hidden');
-      if (backToTop) {
-        backToTop.classList.add('chatbot-open');
-      }
-    });
-  }
-
-  // Minimize chatbot
-  if (chatbotMinimize) {
-    chatbotMinimize.addEventListener('click', () => {
-      isOpen = false;
-      chatbotContainer.classList.remove('open');
-      chatbotToggle.classList.remove('hidden');
-      if (backToTop) {
-        backToTop.classList.remove('chatbot-open');
-      }
-    });
-  }
-
-  // Handle FAQ button clicks
-  if (chatbotFaqContainer) {
-    const faqButtons = chatbotFaqContainer.querySelectorAll('.chatbot-faq-btn');
-    faqButtons.forEach(button => {
-      button.addEventListener('click', () => {
-        const faqType = button.getAttribute('data-faq');
-        const question = button.textContent.trim();
-        
-        // Add user message (the question)
-        addMessage(question, 'user');
-        
-        // Get and display answer
-        setTimeout(() => {
-          const faqAnswers = getFaqAnswers();
-          const lang = currentLanguage || 'en';
-          const defaultError = lang === 'ar' 
-            ? 'عذراً، لا أملك إجابة على هذا السؤال.'
-            : 'Sorry, I don\'t have an answer for that question.';
-          const answer = faqAnswers[faqType] || defaultError;
-          addMessage(answer, 'bot');
-        }, 500);
-      });
-    });
-  }
-
-  // Add message to chat
   function addMessage(text, type) {
-    if (!chatbotMessages) return;
-    
     const messageDiv = document.createElement('div');
     messageDiv.className = `chatbot-message chatbot-message-${type}`;
-    
+
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';
-    
-    // Parse HTML if present in bot messages
+
     if (type === 'bot') {
       contentDiv.innerHTML = text;
     } else {
@@ -2431,17 +2663,87 @@ function initChatbot() {
       p.textContent = text;
       contentDiv.appendChild(p);
     }
-    
+
     messageDiv.appendChild(contentDiv);
     chatbotMessages.appendChild(messageDiv);
-    
-    // Scroll to bottom
     chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
   }
 
-  // Initialize chatbot language
+  // Global FAQ handler so HTML onclick can always trigger it
+  window.chatbotHandleFaqClick = function (faqType, questionText) {
+    if (!faqType || !questionText) return;
+
+    addMessage(questionText, 'user');
+
+    setTimeout(() => {
+      const faqAnswers = getFaqAnswers();
+      const lang = window.currentLanguage || 'en';
+      const defaultError = lang === 'ar'
+        ? 'عذراً، لا أملك إجابة على هذا السؤال.'
+        : 'Sorry, I don\'t have an answer for that question.';
+      const answer = faqAnswers[faqType] || defaultError;
+      addMessage(answer, 'bot');
+    }, 400);
+  };
+
+  // Keep JS listeners as a backup (if inline onclick is disabled)
+  if (chatbotFaqContainer) {
+    const faqButtons = chatbotFaqContainer.querySelectorAll('.chatbot-faq-btn');
+    faqButtons.forEach(button => {
+      button.addEventListener('click', (e) => {
+        e.preventDefault();
+        const faqType = button.getAttribute('data-faq');
+        const span = button.querySelector('span');
+        const question = span ? span.textContent.trim() : button.textContent.trim();
+        window.chatbotHandleFaqClick && window.chatbotHandleFaqClick(faqType, question);
+      });
+    });
+  }
+
   updateChatbotLanguage();
-  
-  // Expose update function globally so setLanguage can call it
   window.updateChatbotLanguage = updateChatbotLanguage;
 }
+
+// Simple global FAQ click handler that does NOT depend on initChatbot closures
+window.chatbotHandleFaqClick = function (faqType, questionText) {
+  const chatbotMessages = document.getElementById('chatbot-messages');
+  if (!chatbotMessages || !faqType || !questionText) return;
+
+  // Add user question
+  const userMsg = document.createElement('div');
+  userMsg.className = 'chatbot-message chatbot-message-user';
+  const userContent = document.createElement('div');
+  userContent.className = 'message-content';
+  const userP = document.createElement('p');
+  userP.textContent = questionText;
+  userContent.appendChild(userP);
+  userMsg.appendChild(userContent);
+  chatbotMessages.appendChild(userMsg);
+
+  // Determine answer using global translations data (same as the rest of the site)
+  let answerText;
+  try {
+    const lang = (typeof currentLanguage !== 'undefined' && currentLanguage) ? currentLanguage : 'en';
+    const t = translations && translations[lang] ? translations[lang] : null;
+    const answers = t && t.chatbot && t.chatbot.answers ? t.chatbot.answers : {};
+    const defaultError = lang === 'ar'
+      ? 'عذراً، لا أملك إجابة على هذا السؤال.'
+      : 'Sorry, I don\'t have an answer for that question.';
+    answerText = answers[faqType] || defaultError;
+  } catch (e) {
+    // Absolute fallback – should rarely be hit
+    answerText = 'Thanks for your question! Please check the corresponding section in the portfolio for full details.';
+  }
+
+  // Add bot answer after a short delay
+  setTimeout(() => {
+    const botMsg = document.createElement('div');
+    botMsg.className = 'chatbot-message chatbot-message-bot';
+    const botContent = document.createElement('div');
+    botContent.className = 'message-content';
+    botContent.innerHTML = answerText;
+    botMsg.appendChild(botContent);
+    chatbotMessages.appendChild(botMsg);
+    chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
+  }, 300);
+};

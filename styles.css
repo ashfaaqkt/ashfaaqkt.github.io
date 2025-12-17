@@ -18,6 +18,9 @@
   
   --color-border: rgba(255, 255, 255, 0.08);
   --color-border-hover: rgba(59, 130, 246, 0.3);
+
+  /* Card / surface backgrounds */
+  --color-card-bg: rgba(15, 22, 36, 0.9);
   
   --gradient-primary: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #06b6d4 100%);
   --gradient-secondary: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
@@ -44,6 +47,8 @@
   --shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.3);
   --shadow-glow: 0 0 40px rgba(59, 130, 246, 0.3);
 }
+
+/* Light theme removed – single dark theme only */
 
 /* ============================================
    RESET & BASE
@@ -596,6 +601,13 @@ html[dir="rtl"] .project-card {
   direction: ltr;
 }
 
+/* In RTL, keep project description text right-aligned and RTL,
+   while badges, titles, hashtags, and buttons remain left-aligned/LTR */
+html[dir="rtl"] .project-card .project-description {
+  direction: rtl !important;
+  text-align: right !important;
+}
+
 html[dir="rtl"] .skill-card {
   text-align: left;
   direction: ltr;
@@ -967,6 +979,13 @@ html[dir="rtl"] .profile-container:hover .profile-image {
   transform: rotate(15deg);
 }
 
+.lang-toggle-label {
+  margin-inline-start: 0.5rem;
+  font-size: 0.9rem;
+}
+
+/* Theme toggle removed */
+
 /* Language toggle animation */
 .lang-toggle::before {
   content: '';
@@ -1195,7 +1214,7 @@ html[dir="rtl"] .profile-container:hover .profile-image {
 }
 
 /* On very small viewports, hide full name label but keep AK logo to reduce clutter */
-@media (max-width: 400px) {
+@media (max-width: 530px) {
   .brand-info {
     display: none;
   }
@@ -1403,6 +1422,13 @@ html[dir="rtl"] .profile-container:hover .profile-image {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-xs);
+}
+
+.cv-dropdown-divider {
+  height: 1px;
+  margin: var(--spacing-sm) 0;
+  background: radial-gradient(circle, rgba(148, 163, 184, 0.7) 0, rgba(30, 41, 59, 0) 70%);
+  opacity: 0.8;
 }
 
 .cv-dropdown-category {
@@ -2668,6 +2694,16 @@ html[dir="rtl"] .hobby-description {
   border: 1px solid var(--color-border);
   border-radius: 20px;
   backdrop-filter: var(--blur-sm);
+  position: relative;
+}
+
+/* Ensure Get in Touch card (and its dropdowns) sits above Send a Message card */
+.contact-info-card {
+  z-index: 2;
+}
+
+.contact-form-card {
+  z-index: 1;
 }
 
 .contact-info-card h3,
@@ -2682,6 +2718,81 @@ html[dir="rtl"] .hobby-description {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-md);
+}
+
+.contact-quick-actions {
+  display: none; /* hidden by default (desktop); shown on small mobile */
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.mobile-contact-group {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  z-index: 20; /* keep dropdown above following cards */
+}
+
+.mobile-contact-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.mobile-contact-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.mobile-contact-btn-label {
+  font-size: 0.8rem;
+}
+
+.mobile-contact-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 180px;
+  padding: var(--spacing-xs) 0;
+  border-radius: 12px;
+  background: rgba(15, 22, 36, 0.9);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-md);
+  display: none;
+  flex-direction: column;
+  z-index: 100; /* ensure it floats above the Send a Message card */
+}
+
+.mobile-contact-menu a {
+  padding: var(--spacing-xs) var(--spacing-md);
+  color: var(--color-text-primary);
+  text-decoration: none;
+  font-size: 0.8rem;
+  white-space: nowrap;      /* keep phone number in one line */
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mobile-contact-menu a:hover {
+  background: rgba(59, 130, 246, 0.15);
+}
+
+.mobile-contact-group.open .mobile-contact-menu {
+  display: flex;
+}
+
+/* Also open dropdowns when the button (or any child) has focus – works well on mobile tap */
+.mobile-contact-group:focus-within .mobile-contact-menu {
+  display: flex;
 }
 
 .contact-item {
@@ -3148,10 +3259,11 @@ html[dir="rtl"] .back-to-top {
   height: 24px;
 }
 
-/* Adjust back-to-top position when chatbot is open */
+/* Adjust back-to-top position when chatbot is open - position it above the chatbot */
 .back-to-top.chatbot-open {
   bottom: calc(500px + var(--spacing-lg) + 12px);
   right: calc(var(--spacing-lg) + 4px);
+  transition: bottom 0.3s ease, opacity 0.3s ease, transform 0.3s ease;
 }
 
 html[dir="rtl"] .back-to-top.chatbot-open {
@@ -3243,8 +3355,11 @@ html[dir="rtl"] .chatbot-toggle .chatbot-notification {
   opacity: 0;
   transform: translateY(20px) scale(0.9);
   pointer-events: none;
-  z-index: 1000;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  visibility: hidden;
+  z-index: 10000;
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              visibility 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
   backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -3256,9 +3371,10 @@ html[dir="rtl"] .chatbot-container {
 }
 
 .chatbot-container.open {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-  pointer-events: auto;
+  opacity: 1 !important;
+  transform: translateY(0) scale(1) !important;
+  pointer-events: auto !important;
+  visibility: visible !important;
 }
 
 .chatbot-header {
@@ -3545,32 +3661,29 @@ html[dir="rtl"] .chatbot-faq-btn:active {
    ============================================ */
 
 [data-animate] {
-  opacity: 1 !important;
+  /* Keep elements visible by default; animations only enhance, never hide content */
+  opacity: 1;
   will-change: opacity, transform;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-  transform: translate3d(0, 0, 0) !important;
-  -webkit-transform: translate3d(0, 0, 0) !important;
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
   transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
               transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Hide elements initially only if JavaScript is enabled and animation is ready */
-html.js-ready [data-animate]:not(.animated) {
-  opacity: 0;
-}
-
+/* Optional entry offsets for elements before they become 'animated' */
 html.js-ready [data-animate="fade-up"]:not(.animated) {
-  transform: translate3d(0, 30px, 0);
+  transform: translate3d(0, 15px, 0);
 }
 
 html.js-ready [data-animate="slide-up"]:not(.animated) {
-  transform: translate3d(0, 50px, 0);
+  transform: translate3d(0, 25px, 0);
 }
 
 [data-animate].animated {
-  opacity: 1 !important;
-  transform: translate3d(0, 0, 0) !important;
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
   will-change: auto;
 }
 
@@ -3835,6 +3948,11 @@ html.js-ready [data-animate="slide-up"]:not(.animated) {
     padding: 0 var(--spacing-sm);
   }
   
+  /* Hide Technology Stack on mobile */
+  .tech-stack {
+    display: none;
+  }
+  
   .hero-actions {
     flex-direction: column;
     width: 100%;
@@ -3919,10 +4037,15 @@ html.js-ready [data-animate="slide-up"]:not(.animated) {
   }
 }
 
-/* Extra tweaks for very narrow devices like 390px width (iPhone-sized) */
-@media (max-width: 400px) {
+/* Extra tweaks for narrow mobile devices up to ~530px width */
+@media (max-width: 530px) {
   .page {
     padding: var(--spacing-xl) var(--spacing-md);
+  }
+  
+  /* Hide Technology Stack on mobile */
+  .tech-stack {
+    display: none;
   }
 
   .page-header {
@@ -4053,6 +4176,246 @@ html.js-ready [data-animate="slide-up"]:not(.animated) {
     font-size: 2rem;
     right: -6px;
     bottom: -10px;
+  }
+
+  /* Contact section - make more compact and avoid horizontal overflow on tiny screens */
+  .contact-grid {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-md);
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto;
+  }
+
+  .contact-info-card,
+  .contact-form-card {
+    padding: var(--spacing-lg);
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    margin: 0 auto;
+  }
+
+  .contact-item {
+    padding: var(--spacing-sm) var(--spacing-md);
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .contact-main {
+    gap: var(--spacing-sm);
+  }
+
+  .contact-details {
+    font-size: 0.9rem;
+  }
+
+  .contact-label {
+    font-size: 0.7rem;
+  }
+
+  .contact-value {
+    font-size: 0.85rem;
+  }
+
+  .contact-form .form-group input,
+  .contact-form .form-group textarea {
+    font-size: 0.9rem;
+    padding: var(--spacing-sm) var(--spacing-md);
+  }
+
+  .radio-label {
+    padding: var(--spacing-xs) var(--spacing-md);
+  }
+
+  .radio-label input[type="radio"] {
+    width: 14px;
+    height: 14px;
+    margin-top: 1px;
+  }
+
+  .radio-label span,
+  .radio-text-block {
+    font-size: 0.85rem;
+  }
+
+  /* Prevent contact items from sliding out of the viewport on hover */
+  .contact-item:hover {
+    transform: none;
+  }
+
+  html[dir="rtl"] .contact-item:hover {
+    transform: none;
+  }
+
+  /* Reflow WhatsApp contact rows so they don't bulge horizontally on tiny screens */
+  .contact-item.contact-has-whatsapp {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .contact-main {
+    width: auto;
+    align-items: center;
+    flex: 1;              /* let main content take all available width */
+    min-width: 0;         /* allow shrinking so text can stay on one line */
+  }
+
+  .contact-side {
+    width: auto;
+    justify-content: center;
+    margin-top: 0;
+    position: static;
+  }
+
+  .contact-divider {
+    display: none;
+  }
+
+  .contact-whatsapp {
+    margin-left: auto;
+    margin-right: 0;
+    position: static;
+  }
+
+  /* Contact section layout fixes for very narrow screens (e.g., 390x844) */
+  #page-connect .page-inner {
+    padding: 0;
+  }
+
+  .contact-info-card,
+  .contact-form-card {
+    padding: var(--spacing-md);
+    border-radius: 16px;
+    transition: none;
+    transform: none;
+  }
+
+  .contact-list {
+    gap: var(--spacing-sm);
+  }
+
+  /* On small mobile: hide full cards, show only quick-action buttons */
+  #page-connect .contact-list.desktop-contact-list {
+    display: none;
+  }
+
+  #page-connect .contact-quick-actions {
+    display: flex;
+    flex-direction: row;         /* show buttons side by side */
+    align-items: center;
+    justify-content: flex-start;
+    gap: var(--spacing-sm);
+    flex-wrap: nowrap;           /* keep them in one row even on 390x844 */
+  }
+
+  /* Arabic RTL - keep quick actions side by side, mirrored */
+  html[dir="rtl"] #page-connect .contact-quick-actions {
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+  }
+
+  html[dir="rtl"] #page-connect .mobile-contact-group {
+    align-items: flex-end;
+  }
+
+  .contact-list {
+    gap: var(--spacing-sm);
+  }
+
+  .contact-item {
+    flex-direction: row;
+    align-items: center;
+    transition: none;
+    transform: none;
+    position: static;
+    padding: var(--spacing-md);
+  }
+
+  .contact-icon {
+    margin-bottom: 0;
+    position: static;
+  }
+
+  .contact-details {
+    width: 100%;
+    flex: 1;              /* give email/phone maximum horizontal space */
+    margin-top: 0;
+  }
+
+  .contact-value {
+    word-break: normal;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Arabic RTL-specific tweaks for contact section on very small screens */
+  html[dir="rtl"] #page-connect .contact-grid {
+    direction: rtl;
+  }
+
+  html[dir="rtl"] #page-connect .contact-info-card,
+  html[dir="rtl"] #page-connect .contact-form-card {
+    text-align: right;
+  }
+
+  html[dir="rtl"] #page-connect .contact-item {
+    flex-direction: row-reverse;
+    align-items: flex-start;
+    padding: var(--spacing-md);
+    position: static;
+  }
+
+  html[dir="rtl"] #page-connect .contact-main {
+    flex-direction: row-reverse;
+    align-items: flex-start;
+    flex: 1;
+    min-width: 0;
+  }
+
+  html[dir="rtl"] #page-connect .contact-icon {
+    margin-bottom: 0;
+    margin-left: var(--spacing-md);
+  }
+
+  html[dir="rtl"] #page-connect .contact-details {
+    width: 100%;
+    text-align: right;
+  }
+
+  html[dir="rtl"] #page-connect .contact-label {
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  html[dir="rtl"] #page-connect .contact-value {
+    /* Put value on its own clear block under the Arabic label */
+    display: block;
+    direction: ltr;        /* keep digits and @ in correct order */
+    text-align: left;
+    margin-top: 2px;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    /* Keep entire number/email on one straight line (no vertical stacking) */
+    white-space: nowrap;
+    word-break: normal;
+    overflow-x: auto;      /* allow gentle horizontal scroll if needed */
+    overflow-y: hidden;
+    text-overflow: clip;
+  }
+
+  html[dir="rtl"] #page-connect .contact-whatsapp {
+    margin-right: auto;
+    margin-left: 0;
+  }
+
+  /* Make Send Message button consistent and centered in Arabic on small screens */
+  html[dir="rtl"] .contact-form button[type="submit"] {
+    width: 100%;
+    justify-content: center;
   }
 }
 

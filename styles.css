@@ -4302,7 +4302,7 @@ html.js-ready [data-animate="slide-up"]:not(.animated) {
   }
 
   #page-connect .contact-quick-actions {
-    display: flex;
+    display: flex !important;
     flex-direction: row;         /* show buttons side by side */
     align-items: center;
     justify-content: flex-start;
@@ -4315,6 +4315,13 @@ html.js-ready [data-animate="slide-up"]:not(.animated) {
     flex-direction: row-reverse;
     justify-content: flex-end;
     flex-wrap: nowrap;
+  }
+
+  /* Ensure quick actions stay mobile-only */
+  @media (min-width: 531px) {
+    #page-connect .contact-quick-actions {
+      display: none !important;
+    }
   }
 
   html[dir="rtl"] #page-connect .mobile-contact-group {

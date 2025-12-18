@@ -1376,7 +1376,7 @@ html[dir="rtl"] .profile-container:hover .profile-image {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
-  overflow: hidden;
+  overflow: hidden; /* default */
 }
 
 .cv-dropdown-menu::before {
@@ -1397,6 +1397,15 @@ html[dir="rtl"] .profile-container:hover .profile-image {
   transform: scaleY(1) translateY(0);
   transition: opacity 0.18s ease-out, visibility 0s linear 0s;
   animation: cv-genie-open 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+/* When viewport height is small, allow scrolling inside the CV dropdown
+   so content is still reachable instead of overflowing off-screen */
+@media (max-height: 900px) {
+  .cv-dropdown-menu {
+    max-height: 70vh;
+    overflow-y: auto;
+  }
 }
 
 /* Genie-style open animation for CV dropdown */

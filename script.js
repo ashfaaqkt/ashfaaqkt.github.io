@@ -2395,21 +2395,41 @@ function initMobileContactActions() {
     const button = group.querySelector('.mobile-contact-btn');
     if (!button) return;
 
-    button.addEventListener('click', (e) => {
+    // Handle click events (works on both desktop and mobile)
+    const handleToggle = (e) => {
       e.stopPropagation();
       const isOpen = group.classList.contains('open');
       // Close any other open menus
-      document.querySelectorAll('.mobile-contact-group.open').forEach(g => g.classList.remove('open'));
+      document.querySelectorAll('.mobile-contact-group.open').forEach(g => {
+        g.classList.remove('open');
+        const btn = g.querySelector('.mobile-contact-btn');
+        if (btn) btn.setAttribute('aria-expanded', 'false');
+      });
       if (!isOpen) {
         group.classList.add('open');
+        // Update aria-expanded
+        button.setAttribute('aria-expanded', 'true');
+      } else {
+        button.setAttribute('aria-expanded', 'false');
       }
-    });
+    };
+
+    button.addEventListener('click', handleToggle);
   });
 
   // Close menus when clicking outside
-  document.addEventListener('click', () => {
-    document.querySelectorAll('.mobile-contact-group.open').forEach(g => g.classList.remove('open'));
+  document.addEventListener('click', (e) => {
+    // Check if click is inside any mobile-contact-group
+    const clickedInside = Array.from(groups).some(group => group.contains(e.target));
+    if (!clickedInside) {
+      document.querySelectorAll('.mobile-contact-group.open').forEach(g => {
+        g.classList.remove('open');
+        const btn = g.querySelector('.mobile-contact-btn');
+        if (btn) btn.setAttribute('aria-expanded', 'false');
+      });
+    }
   });
+
 }
   
   function navigateToPreviousPage() {

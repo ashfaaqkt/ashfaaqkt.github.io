@@ -2741,6 +2741,7 @@ html[dir="rtl"] .hobby-description {
   flex-direction: column;
   align-items: flex-start;
   z-index: 20; /* keep dropdown above following cards */
+  pointer-events: auto; /* Ensure group is interactive */
 }
 
 .mobile-contact-btn {
@@ -2755,6 +2756,12 @@ html[dir="rtl"] .hobby-description {
   cursor: pointer;
   font-size: 0.85rem;
   font-weight: 500;
+  touch-action: manipulation; /* Improve touch responsiveness on mobile */
+  -webkit-tap-highlight-color: transparent; /* Remove default tap highlight */
+  user-select: none; /* Prevent text selection on mobile */
+  pointer-events: auto; /* Ensure button is clickable */
+  position: relative;
+  z-index: 21; /* Ensure button is above menu when closed */
 }
 
 .mobile-contact-btn svg {
@@ -2779,6 +2786,7 @@ html[dir="rtl"] .hobby-description {
   display: none;
   flex-direction: column;
   z-index: 100; /* ensure it floats above the Send a Message card */
+  pointer-events: auto; /* Ensure menu links are clickable */
 }
 
 .mobile-contact-menu a {
@@ -2789,6 +2797,10 @@ html[dir="rtl"] .hobby-description {
   white-space: nowrap;      /* keep phone number in one line */
   overflow: hidden;
   text-overflow: ellipsis;
+  display: block;
+  touch-action: manipulation; /* Improve touch responsiveness */
+  -webkit-tap-highlight-color: rgba(59, 130, 246, 0.3); /* Better tap highlight */
+  pointer-events: auto; /* Ensure links are clickable */
 }
 
 .mobile-contact-menu a:hover {

@@ -156,7 +156,7 @@
               <p class="hero-greeting" data-animate="fade-up" data-delay="0">Hello I Am</p>
               
               <h1 class="hero-title">
-                <span class="title-line" data-animate="fade-up" data-delay="100">ASHFAAQ FEROZ MUHAMMAD</span>
+                <span class="title-line cursor-highlight-target" data-animate="fade-up" data-delay="100">ASHFAAQ FEROZ MUHAMMAD</span>
               </h1>
               
               <p class="hero-degree" data-animate="fade-up" data-delay="200">BSc. CS - BITS PILANI</p>
@@ -189,12 +189,17 @@
               </div>
               
               <div class="hero-actions" data-animate="fade-up" data-delay="500">
-                <a href="#connect" class="btn btn-primary">
-                  <span>Start Conversation</span>
+                <button
+                  type="button"
+                  class="btn btn-primary"
+                  id="portfolio-summary-btn"
+                  onclick="(function(){var m=document.getElementById('portfolio-summary-modal');if(m){m.setAttribute('aria-hidden','false');document.body.classList.add('modal-open');document.documentElement.classList.add('modal-open');}})()"
+                >
+                  <span>View Summary</span>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M5 12h14M12 5l7 7-7 7"/>
                   </svg>
-                </a>
+                </button>
                 <a href="#projects" class="btn btn-secondary">
                   <span>View Projects</span>
                 </a>
@@ -229,7 +234,7 @@
         <div class="page-inner">
           <div class="page-header">
             <span class="page-label" data-animate="fade-up">Profile</span>
-            <h2 class="page-title" data-animate="fade-up" data-delay="100">
+            <h2 class="page-title cursor-highlight-target" data-animate="fade-up" data-delay="100">
               Engineering thoughtful software experiences
             </h2>
             <p class="page-subtitle" data-animate="fade-up" data-delay="200">
@@ -320,7 +325,7 @@
         <div class="page-inner">
           <div class="page-header">
             <span class="page-label" data-animate="fade-up">Timeline</span>
-            <h2 class="page-title" data-animate="fade-up" data-delay="100">
+            <h2 class="page-title cursor-highlight-target" data-animate="fade-up" data-delay="100">
               Academic journey & milestones
             </h2>
           </div>
@@ -336,7 +341,7 @@
         <div class="page-inner">
           <div class="page-header">
             <span class="page-label" data-animate="fade-up">Portfolio</span>
-            <h2 class="page-title" data-animate="fade-up" data-delay="100">
+            <h2 class="page-title cursor-highlight-target" data-animate="fade-up" data-delay="100">
               Selected projects & experiments
             </h2>
             <p class="page-subtitle" data-animate="fade-up" data-delay="200">
@@ -365,7 +370,7 @@
         <div class="page-inner">
           <div class="page-header">
             <span class="page-label" data-animate="fade-up">Capabilities</span>
-            <h2 class="page-title" data-animate="fade-up" data-delay="100">
+            <h2 class="page-title cursor-highlight-target" data-animate="fade-up" data-delay="100">
               Skills, languages & hobbies
             </h2>
           </div>
@@ -400,7 +405,7 @@
         <div class="page-inner">
           <div class="page-header">
             <span class="page-label" data-animate="fade-up">Contact</span>
-            <h2 class="page-title" data-animate="fade-up" data-delay="100">
+            <h2 class="page-title cursor-highlight-target" data-animate="fade-up" data-delay="100">
               Let's build something together
             </h2>
             <p class="page-subtitle" data-animate="fade-up" data-delay="200">
@@ -799,6 +804,94 @@
       </svg>
       <span class="chatbot-notification" id="chatbot-notification"></span>
     </button>
+
+    <!-- Portfolio Summary Modal -->
+    <div class="portfolio-summary-modal" id="portfolio-summary-modal" aria-hidden="true">
+      <div class="portfolio-summary-modal-overlay" id="portfolio-summary-modal-overlay"></div>
+      <div class="portfolio-summary-modal-content">
+        <button
+          class="portfolio-summary-modal-close"
+          id="portfolio-summary-modal-close"
+          aria-label="Close modal"
+          onclick="(function(){var m=document.getElementById('portfolio-summary-modal');if(m){m.setAttribute('aria-hidden','true');document.body.classList.remove('modal-open');document.documentElement.classList.remove('modal-open');}})()"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+        <div class="portfolio-summary-modal-inner">
+          <h2
+            class="portfolio-summary-title"
+            data-en="Portfolio in a nutshell"
+            data-ar="نبذة سريعة عن المحفظة"
+          >
+            Portfolio in a nutshell
+          </h2>
+          <p
+            class="portfolio-summary-text"
+            data-en="A MERN full‑stack and AI‑assisted developer with a strong academic base, shipped projects, and a balanced skill set across backend, frontend, cloud, and collaboration."
+            data-ar="مطور MERN متكامل ومدعوم بالذكاء الاصطناعي مع أساس أكاديمي قوي، ومشاريع منجزة، ومجموعة مهارات متوازنة بين الخلفية والواجهة والسحابة والعمل التعاوني."
+          >
+            A MERN full‑stack and AI‑assisted developer with a strong academic base, shipped projects, and a balanced skill set across backend, frontend, cloud, and collaboration.
+          </p>
+          <ul class="portfolio-summary-list">
+            <li
+              data-en="Education: B.Sc. Computer Science at BITS Pilani with solid performance and clear graduation roadmap."
+              data-ar="التعليم: بكالوريوس علوم الحاسوب من معهد بتس بيلاني بأداء قوي وخطة تخرج واضحة."
+            >
+              Education: B.Sc. Computer Science at BITS Pilani with solid performance and clear graduation roadmap.
+            </li>
+            <li
+              data-en="Projects: Selected real‑world and experimental builds showcasing clean architecture, performance, and UI/UX focus."
+              data-ar="المشاريع: أعمال حقيقية وتجريبية مختارة تُظهر بنية نظيفة، وأداءً عالياً، وتركيزاً على تجربة المستخدم وواجهة المستخدم."
+            >
+              Projects: Selected real‑world and experimental builds showcasing clean architecture, performance, and UI/UX focus.
+            </li>
+            <li
+              data-en="Expertise: MERN stack, cloud tooling, AI‑assisted workflows, and strong communication in multiple languages."
+              data-ar="الخبرات: مكدس MERN، وأدوات السحابة، وسير عمل مدعومة بالذكاء الاصطناعي، وقدرات تواصل قوية بعدة لغات."
+            >
+              Expertise: MERN stack, cloud tooling, AI‑assisted workflows, and strong communication in multiple languages.
+            </li>
+          </ul>
+          <div class="portfolio-summary-actions">
+            <a
+              href="#education"
+              class="btn btn-outline portfolio-summary-link"
+              onclick="(function(){var m=document.getElementById('portfolio-summary-modal');if(m){m.setAttribute('aria-hidden','true');document.body.classList.remove('modal-open');document.documentElement.classList.remove('modal-open');}})()"
+            >
+              <span data-en="Read more about Education" data-ar="اقرأ المزيد عن التعليم">Read more about Education</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+              </svg>
+            </a>
+            <a
+              href="#projects"
+              class="btn btn-outline portfolio-summary-link"
+              onclick="(function(){var m=document.getElementById('portfolio-summary-modal');if(m){m.setAttribute('aria-hidden','true');document.body.classList.remove('modal-open');document.documentElement.classList.remove('modal-open');}})()"
+            >
+              <span data-en="Read more about Projects" data-ar="اقرأ المزيد عن المشاريع">Read more about Projects</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+              </svg>
+            </a>
+            <a
+              href="#expertise"
+              class="btn btn-outline portfolio-summary-link"
+              onclick="(function(){var m=document.getElementById('portfolio-summary-modal');if(m){m.setAttribute('aria-hidden','true');document.body.classList.remove('modal-open');document.documentElement.classList.remove('modal-open');}})()"
+            >
+              <span data-en="Read more about Expertise" data-ar="اقرأ المزيد عن الخبرات">Read more about Expertise</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+              </svg>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Custom Cursor -->
+    <div class="custom-cursor" id="custom-cursor"></div>
 
     <!-- Back to Top Button -->
     <button class="back-to-top" id="back-to-top" aria-label="Back to top">

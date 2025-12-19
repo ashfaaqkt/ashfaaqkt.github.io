@@ -29,7 +29,7 @@ const translations = {
       graduation: 'Graduation',
       languages: 'Languages',
       projects: 'Projects',
-      startConversation: 'Start Conversation',
+      startConversation: 'View Summary',
       viewProjects: 'View Projects',
       quote: 'So Give Me Coffee And Codes...'
     },
@@ -232,7 +232,7 @@ const translations = {
       graduation: 'التخرج',
       languages: 'اللغات',
       projects: 'المشاريع',
-      startConversation: 'ابدأ المحادثة',
+      startConversation: 'عرض ملخص المحفظة',
       viewProjects: 'عرض المشاريع',
       quote: 'فقط أعطني القهوة والأكواد...'
     },
@@ -436,6 +436,7 @@ function safeInit(name, fn) {
 document.addEventListener('DOMContentLoaded', () => {
   // Initialize language system first
   safeInit('language', initLanguageSystem);
+  safeInit('customCursor', initCustomCursor);
   
   // Initialize in proper order to prevent flicker
   safeInit('navigation', initNavigation);
@@ -446,6 +447,7 @@ document.addEventListener('DOMContentLoaded', () => {
   safeInit('contactForm', initContactForm);
   safeInit('mobileContactActions', initMobileContactActions);
   safeInit('chatbot', initChatbot);
+  safeInit('portfolioSummaryModal', initPortfolioSummaryModal);
   
   // Initialize animations after a brief delay to ensure DOM is ready
   requestAnimationFrame(() => {
@@ -477,6 +479,42 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 500);
   });
 });
+
+// ============================================
+// CUSTOM CURSOR
+// ============================================
+
+function initCustomCursor() {
+  const cursorEl = document.getElementById('custom-cursor');
+  if (!cursorEl) return;
+
+  // Don't run on touch / coarse pointer devices
+  if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) {
+    return;
+  }
+
+  document.addEventListener('mousemove', (e) => {
+    cursorEl.classList.add('is-visible');
+    const x = e.clientX;
+    const y = e.clientY;
+    cursorEl.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
+  }, { passive: true });
+
+  document.addEventListener('mouseleave', () => {
+    cursorEl.classList.remove('is-visible');
+  });
+
+  // Make cursor large over highlighted headings (both EN + AR share same elements)
+  const highlightTargets = document.querySelectorAll('.cursor-highlight-target');
+  highlightTargets.forEach((el) => {
+    el.addEventListener('mouseenter', () => {
+      cursorEl.classList.add('is-large');
+    });
+    el.addEventListener('mouseleave', () => {
+      cursorEl.classList.remove('is-large');
+    });
+  });
+}
 
 // ============================================
 // NAVIGATION SYSTEM
@@ -2767,3 +2805,59 @@ window.chatbotHandleFaqClick = function (faqType, questionText) {
     chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
   }, 300);
 };
+
+// ============================================
+// PORTFOLIO SUMMARY MODAL
+// ============================================
+
+function initPortfolioSummaryModal() {
+  const modal = document.getElementById('portfolio-summary-modal');
+  const modalBtn = document.getElementById('portfolio-summary-btn');
+  const modalClose = document.getElementById('portfolio-summary-modal-close');
+  const modalOverlay = document.getElementById('portfolio-summary-modal-overlay');
+
+  if (!modal || !modalBtn) return;
+
+  function openModal() {
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('modal-open');
+    document.documentElement.classList.add('modal-open');
+  }
+
+  function closeModal() {
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
+    document.documentElement.classList.remove('modal-open');
+  }
+
+  // Open modal on button click
+  modalBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    openModal();
+  });
+
+  // Close modal on close button click
+  if (modalClose) {
+    modalClose.addEventListener('click', closeModal);
+  }
+
+  // Close modal on overlay click
+  if (modalOverlay) {
+    modalOverlay.addEventListener('click', closeModal);
+  }
+
+  // Close modal on Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal.getAttribute('aria-hidden') === 'false') {
+      closeModal();
+    }
+  });
+
+  // Close modal when clicking on "Read more" links
+  const readMoreLinks = modal.querySelectorAll('.portfolio-summary-link');
+  readMoreLinks.forEach(link => {
+    link.addEventListener('click', () => {
+      closeModal();
+    });
+  });
+}

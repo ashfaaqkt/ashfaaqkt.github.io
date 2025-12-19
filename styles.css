@@ -74,6 +74,45 @@ body {
   position: relative;
   min-height: 100vh;
   transition: opacity 0.3s ease;
+  cursor: none; /* hide default cursor in favor of custom cursor */
+}
+
+/* Global scrollbar styling (main page) */
+body::-webkit-scrollbar {
+  width: 10px;
+}
+
+body::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.35);
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+body::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.9), rgba(139, 92, 246, 0.85));
+  border-radius: 999px;
+  box-shadow:
+    0 0 0 1px rgba(15, 23, 42, 0.6),
+    0 0 14px rgba(59, 130, 246, 0.7);
+}
+
+body::-webkit-scrollbar-thumb:hover {
+  box-shadow:
+    0 0 0 1px rgba(15, 23, 42, 0.8),
+    0 0 20px rgba(59, 130, 246, 0.95);
+}
+
+/* Firefox global scrollbar colors */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-accent-primary) rgba(15, 23, 42, 0.95);
+}
+
+/* When modal is open, prevent background from scrolling */
+html.modal-open,
+body.modal-open {
+  overflow: hidden;
+  touch-action: none;
 }
 
 body.language-transitioning {
@@ -94,6 +133,54 @@ html[dir="rtl"] .main-content,
 html[dir="rtl"] .page,
 html[dir="rtl"] .page-inner {
   direction: rtl;
+}
+
+/* ============================================
+   CUSTOM CURSOR
+   ============================================ */
+
+.custom-cursor {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(248, 250, 252, 0.85);
+  transform: translate(-50%, -50%) scale(0.9);
+  pointer-events: none;
+  z-index: 99999;
+  mix-blend-mode: difference;
+  opacity: 0;
+  transition:
+    width 0.18s ease,
+    height 0.18s ease,
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    opacity 0.18s ease;
+}
+
+.custom-cursor.is-visible {
+  opacity: 1;
+}
+
+.custom-cursor.is-large {
+  width: 84px;
+  height: 84px;
+  border-color: rgba(59, 130, 246, 0.85);
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.22), transparent 60%);
+  transform: translate(-50%, -50%) scale(1);
+}
+
+/* Fallback for touch / coarse pointers – show normal cursor and hide custom one */
+@media (pointer: coarse) {
+  body {
+    cursor: auto;
+  }
+
+  .custom-cursor {
+    display: none;
+  }
 }
 
 /* Navigation RTL - Keep logo left, buttons right, only reverse nav links */
@@ -3290,6 +3377,228 @@ html[dir="rtl"] .back-to-top {
 html[dir="rtl"] .back-to-top.chatbot-open {
   right: auto;
   left: calc(var(--spacing-lg) + 4px);
+}
+
+/* ============================================
+   PORTFOLIO SUMMARY MODAL
+   ============================================ */
+
+.portfolio-summary-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              visibility 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: var(--spacing-lg);
+}
+
+.portfolio-summary-modal[aria-hidden="false"] {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.portfolio-summary-modal-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 14, 26, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.portfolio-summary-modal-content {
+  position: relative;
+  width: 100%;
+  max-width: 700px;
+  max-height: 90vh;
+  background: var(--color-card-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  overflow: hidden;
+  transform: scale(0.9) translateY(20px);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+.portfolio-summary-modal[aria-hidden="false"] .portfolio-summary-modal-content {
+  transform: scale(1) translateY(0);
+}
+
+.portfolio-summary-modal-close {
+  position: absolute;
+  top: var(--spacing-md);
+  right: var(--spacing-md);
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  z-index: 10;
+}
+
+html[dir="rtl"] .portfolio-summary-modal-close {
+  right: auto;
+  left: var(--spacing-md);
+}
+
+.portfolio-summary-modal-close:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: var(--color-accent-primary);
+  color: var(--color-accent-primary);
+  transform: rotate(90deg);
+}
+
+.portfolio-summary-modal-close svg {
+  width: 20px;
+  height: 20px;
+}
+
+.portfolio-summary-modal-inner {
+  padding: var(--spacing-2xl);
+  overflow-y: auto;
+  max-height: calc(90vh - 40px);
+}
+
+.portfolio-summary-modal-inner::-webkit-scrollbar {
+  width: 8px;
+}
+
+.portfolio-summary-modal-inner::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.35);
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.portfolio-summary-modal-inner::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.9), rgba(139, 92, 246, 0.85));
+  border-radius: 999px;
+  box-shadow:
+    0 0 0 1px rgba(15, 23, 42, 0.6),
+    0 0 12px rgba(59, 130, 246, 0.7);
+}
+
+.portfolio-summary-modal-inner::-webkit-scrollbar-thumb:hover {
+  box-shadow:
+    0 0 0 1px rgba(15, 23, 42, 0.8),
+    0 0 18px rgba(59, 130, 246, 0.95);
+}
+
+/* Firefox scrollbar colors for the modal */
+.portfolio-summary-modal-inner {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-accent-primary) transparent;
+}
+
+.portfolio-summary-title {
+  font-size: clamp(1.8rem, 4vw, 2.5rem);
+  font-weight: 800;
+  margin-bottom: var(--spacing-lg);
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1.2;
+}
+
+.portfolio-summary-text {
+  font-size: 1.1rem;
+  color: var(--color-text-secondary);
+  line-height: 1.8;
+  margin-bottom: var(--spacing-xl);
+}
+
+.portfolio-summary-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--spacing-xl) 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.portfolio-summary-list li {
+  padding: var(--spacing-md);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  color: var(--color-text-secondary);
+  line-height: 1.7;
+  position: relative;
+  padding-left: calc(var(--spacing-md) + 24px);
+}
+
+html[dir="rtl"] .portfolio-summary-list li {
+  padding-left: var(--spacing-md);
+  padding-right: calc(var(--spacing-md) + 24px);
+}
+
+.portfolio-summary-list li::before {
+  content: '✓';
+  position: absolute;
+  left: var(--spacing-md);
+  top: var(--spacing-md);
+  color: var(--color-accent-primary);
+  font-weight: 700;
+  font-size: 1.2rem;
+}
+
+html[dir="rtl"] .portfolio-summary-list li::before {
+  left: auto;
+  right: var(--spacing-md);
+}
+
+.portfolio-summary-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-xl);
+}
+
+.portfolio-summary-link {
+  width: 100%;
+  justify-content: center;
+}
+
+html[dir="rtl"] .portfolio-summary-link {
+  flex-direction: row-reverse;
+}
+
+html[dir="rtl"] .portfolio-summary-link svg {
+  transform: scaleX(-1);
+}
+
+@media (max-width: 768px) {
+  .portfolio-summary-modal {
+    padding: var(--spacing-md);
+  }
+
+  .portfolio-summary-modal-inner {
+    padding: var(--spacing-xl);
+  }
+
+  .portfolio-summary-title {
+    font-size: 1.8rem;
+  }
+
+  .portfolio-summary-text {
+    font-size: 1rem;
+  }
 }
 
 /* ============================================
